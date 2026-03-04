@@ -147,7 +147,7 @@ export class TaskService {
 
     this.db
       .prepare(
-        "UPDATE tasks SET title = ?, description = ?, status = ?, state = ?, failure_reason = ?, completed_at = ?, updated_at = datetime('now') WHERE id = ?"
+        "UPDATE tasks SET title = ?, description = ?, status = ?, state = ?, failure_reason = ?, completed_at = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = ?"
       )
       .run(title, description, status, state, failure_reason, completed_at, id);
 
@@ -167,7 +167,7 @@ export class TaskService {
   recoverInProgressTasks(): number {
     const result = this.db
       .prepare(
-        "UPDATE tasks SET state = 'failed', failure_reason = 'Worker restarted while task was in progress', updated_at = datetime('now') WHERE state = 'in_progress'"
+        "UPDATE tasks SET state = 'failed', failure_reason = 'Worker restarted while task was in progress', updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE state = 'in_progress'"
       )
       .run();
     return result.changes;
@@ -201,7 +201,7 @@ export class TaskService {
 
     // Transition to add_message so the worker picks this up; clear failure_reason
     this.db
-      .prepare("UPDATE tasks SET state = 'add_message', failure_reason = NULL, updated_at = datetime('now') WHERE id = ?")
+      .prepare("UPDATE tasks SET state = 'add_message', failure_reason = NULL, updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = ?")
       .run(taskId);
 
     return this.db

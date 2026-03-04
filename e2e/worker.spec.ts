@@ -1,13 +1,25 @@
 import { test, expect } from "@playwright/test";
 
 test.describe("Worker background processing", () => {
+  let agentId: number;
+
   test.beforeEach(async ({ request }) => {
     await request.post("/api/tasks/reset");
+    // Ensure a test agent exists (create or reuse)
+    const agentRes = await request.post("/api/agents", {
+      data: { name: "test-agent", port: 9001 },
+    });
+    if (agentRes.ok()) {
+      agentId = (await agentRes.json()).id;
+    } else {
+      const list = await (await request.get("/api/agents")).json();
+      agentId = list[0].id;
+    }
   });
 
   test("worker automatically processes a planning task to done", async ({ request }) => {
     const createRes = await request.post("/api/tasks", {
-      data: { title: "Worker test task" },
+      data: { title: "Worker test task", agent_id: agentId },
     });
     const task = await createRes.json();
     expect(task.state).toBe("pending");
@@ -30,13 +42,13 @@ test.describe("Worker background processing", () => {
   test("worker processes planning and development tasks concurrently", async ({ request }) => {
     // Create a planning task
     const planRes = await request.post("/api/tasks", {
-      data: { title: "Plan task" },
+      data: { title: "Plan task", agent_id: agentId },
     });
     const planTask = await planRes.json();
 
     // Create a development task (move through planning first)
     const devRes = await request.post("/api/tasks", {
-      data: { title: "Dev task" },
+      data: { title: "Dev task", agent_id: agentId },
     });
     const devTask = await devRes.json();
     await request.patch(`/api/tasks/${devTask.id}`, {

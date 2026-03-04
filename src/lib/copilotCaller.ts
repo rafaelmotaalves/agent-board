@@ -1,16 +1,32 @@
 import { DeltaCallback, IAgentCaller } from "./agentCaller";
 import { SLUG_PLANNING } from "./queues";
 import { Task } from "./types";
-import { approveAll, CopilotClient, CopilotSession } from "@github/copilot-sdk";
+import { approveAll, CopilotClient, CopilotSession, PermissionHandler } from "@github/copilot-sdk";
 import logger from "./logger";
+
+const logAndApprove: PermissionHandler = (request, invocation) => {
+    logger.info({ kind: request.kind, toolCallId: request.toolCallId, sessionId: invocation.sessionId }, "Approving tool permission request");
+    return approveAll(request, invocation);
+};
 
 const LOCALHOST = "localhost";
 const PLAN_TIMEOUT_MS = 3600000; // 60 minutes
+const GENERAL_GUIDELINES = `
+    * Include line breaks and use markdown where appropriate to improve readability.
+    * Write "Executing: \`<command>\`" before executing any commands.
+    * Update the user with your progress as you work through your task, but do not return anything until the task is fully complete.
+`;
+const EXECUTE_SYSTEM_MESSAGE = 
+`
+You are in execution mode. Your task is to implement the changes while following the task plan.
+${GENERAL_GUIDELINES}
+`;
 const PLAN_SYSTEM_MESSAGE = `
 You are in planning mode. Your task is to create a development plan for the given task.
     * Do not execute any changes, just return a detailed plan in markdown format.
-    * Return the whole plan, **do not generate any files or code snippets separately**.
-    * Return only the plan, **do not include any additional text**`;
+    * Return the whole plan, **do not generate any files or code snippets separately and do not include any additional text**
+${GENERAL_GUIDELINES}
+`;
 
 export class CopilotCaller implements IAgentCaller {
     private readonly client: CopilotClient;
@@ -32,7 +48,7 @@ export class CopilotCaller implements IAgentCaller {
         }
         logger.info({ taskId }, "Creating new execution session for task planning");
         const session = await this.client.createSession({ 
-            onPermissionRequest: approveAll,
+            onPermissionRequest: logAndApprove,
             streaming: true,
             systemMessage: {
                 content: PLAN_SYSTEM_MESSAGE.trim()
@@ -48,8 +64,11 @@ export class CopilotCaller implements IAgentCaller {
         }
         logger.info({ taskId }, "Creating new execution session for task execution");
         const session = await this.client.createSession({ 
-            onPermissionRequest: approveAll,
+            onPermissionRequest: logAndApprove,
             streaming: true,
+            systemMessage: {
+                content: EXECUTE_SYSTEM_MESSAGE.trim()
+            }
         });
         this.executionSessions.set(taskId, session);
         return session;
@@ -88,7 +107,6 @@ export class CopilotCaller implements IAgentCaller {
         Description: ${task.description}
         Messages: ${messages.join("\n\n")}
 
-        Update the user with your progress as you work through the implementation, but do not return anything until the task is fully complete.
         `;
         logger.info({ taskId: task.id, status: task.status, prompt }, "Sending execution prompt to agent session");
 

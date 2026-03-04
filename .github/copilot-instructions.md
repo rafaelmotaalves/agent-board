@@ -1,4 +1,4 @@
-# Copilot Instructions for ai-board
+# Copilot Instructions for agent-board
 
 ## Build, Test, and Lint
 

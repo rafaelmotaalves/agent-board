@@ -19,6 +19,12 @@ export default function CommentForm({ value, onChange, onSubmit, submitting, err
         <textarea
           value={value}
           onChange={(e) => onChange(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey && !submitting && value.trim()) {
+              e.preventDefault();
+              onSubmit(e as unknown as React.FormEvent);
+            }
+          }}
           placeholder="Send a message — the agent will continue based on it…"
           rows={3}
           className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-800 placeholder-zinc-400 focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:placeholder-zinc-500 dark:focus:border-blue-500 dark:focus:ring-blue-500"

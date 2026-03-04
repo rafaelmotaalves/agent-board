@@ -4,7 +4,7 @@ import type { Task, TaskState, Agent, AgentOptions, TaskMessage } from "@/lib/ty
 export type { Task, TaskState, Agent, AgentOptions, TaskMessage };
 export { isValidState } from "@/lib/types";
 
-const DB_PATH = path.join(process.cwd(), "ai-board.db");
+const DB_PATH = path.join(process.cwd(), "agent-board.db");
 
 let _db: Database | null = null;
 
@@ -23,8 +23,8 @@ export function getDb(): Database {
         state TEXT NOT NULL DEFAULT 'pending',
         failure_reason TEXT DEFAULT NULL,
         completed_at TEXT DEFAULT NULL,
-        created_at TEXT NOT NULL DEFAULT (datetime('now')),
-        updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+        created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+        updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
       )
     `);
     // Migrations: add columns if they don't exist (for existing DBs)
@@ -50,7 +50,7 @@ export function getDb(): Database {
         name TEXT NOT NULL,
         port INTEGER NOT NULL UNIQUE,
         options TEXT NOT NULL DEFAULT '{}',
-        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
       )
     `);
 
@@ -69,7 +69,7 @@ export function getDb(): Database {
         role TEXT NOT NULL DEFAULT 'user',
         content TEXT NOT NULL,
         task_state_at_creation TEXT NOT NULL,
-        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
       )
     `);
     // Migration: add role column if it doesn't exist (for existing DBs)

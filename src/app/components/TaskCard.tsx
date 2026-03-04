@@ -1,8 +1,44 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import type { Task, Agent } from "@/lib/types";
 import { Queue, getNextQueue } from "@/lib/queues";
-import { Loader2, TrashIcon, AlertCircle } from "lucide-react";
+import { Loader2, TrashIcon, AlertCircle, Clock } from "lucide-react";
+
+function formatDuration(startIso: string, endIso: string): string {
+  const diffMs = new Date(endIso).getTime() - new Date(startIso).getTime();
+  if (diffMs < 0) return "";
+
+  const seconds = Math.floor(diffMs / 1000);
+  const minutes = Math.floor(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+  const days = Math.floor(hours / 24);
+
+  if (days > 0) return `${days}d ${hours % 24}h`;
+  if (hours > 0) return `${hours}h ${minutes % 60}m`;
+  if (minutes > 0) return `${minutes}m ${seconds % 60}s`;
+  return `${seconds}s`;
+}
+
+function getTimeInfo(task: Task, now: string | null): { label: string; value: string; color: string } | null {
+  if (task.status === "done") {
+    const endTime = task.completed_at ?? task.updated_at;
+    return {
+      label: "Time taken",
+      value: formatDuration(task.created_at, endTime),
+      color: "text-emerald-600 dark:text-emerald-400",
+    };
+  }
+  // In planning or development — show time in current status using updated_at as the status entry point
+  if ((task.status === "planning" || task.status === "development") && now) {
+    return {
+      label: `In ${task.status}`,
+      value: formatDuration(task.updated_at, now),
+      color: "text-zinc-400 dark:text-zinc-500",
+    };
+  }
+  return null;
+}
 
 interface TaskCardProps {
   task: Task;
@@ -14,6 +50,15 @@ interface TaskCardProps {
 
 export default function TaskCard({ task, queue, assignedAgent, onDelete, onClick }: TaskCardProps) {
   const nextQueue = getNextQueue(queue.slug);
+  const [now, setNow] = useState<string | null>(null);
+
+  useEffect(() => {
+    setNow(new Date().toISOString());
+    const interval = setInterval(() => setNow(new Date().toISOString()), 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const timeInfo = getTimeInfo(task, now);
 
   return (
     <div
@@ -42,8 +87,14 @@ export default function TaskCard({ task, queue, assignedAgent, onDelete, onClick
         </p>
       )}
       <div className="mt-3 flex items-center justify-between">
-        <span className="text-xs text-zinc-400 dark:text-zinc-500">
+        <span className="flex items-center gap-2 text-xs text-zinc-400 dark:text-zinc-500">
           #{task.id}
+          {timeInfo && (
+            <span className={`flex items-center gap-0.5 ${timeInfo.color}`} title={timeInfo.label}>
+              <Clock className="h-3 w-3" aria-hidden="true" />
+              {timeInfo.value}
+            </span>
+          )}
         </span>
         <div className="flex items-center gap-1.5">
           {nextQueue && task.state === "in_progress" && (

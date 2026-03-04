@@ -1,6 +1,20 @@
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
 import { render, screen } from "@testing-library/react";
-import TimeSinceUpdate, { formatElapsed } from "../TimeSinceUpdate";
+import TimeSinceUpdate, { formatElapsed, parseUTC } from "../TimeSinceUpdate";
+
+describe("parseUTC", () => {
+  it("parses ISO 8601 strings with Z suffix", () => {
+    expect(parseUTC("2025-01-15T12:00:00Z")).toBe(new Date("2025-01-15T12:00:00Z").getTime());
+  });
+
+  it("parses SQLite datetime format as UTC", () => {
+    expect(parseUTC("2025-01-15 12:00:00")).toBe(new Date("2025-01-15T12:00:00Z").getTime());
+  });
+
+  it("parses ISO 8601 strings with milliseconds", () => {
+    expect(parseUTC("2025-01-15T12:00:00.000Z")).toBe(new Date("2025-01-15T12:00:00Z").getTime());
+  });
+});
 
 describe("formatElapsed", () => {
   it("shows seconds only when under a minute", () => {
@@ -55,5 +69,17 @@ describe("TimeSinceUpdate", () => {
     render(<TimeSinceUpdate updatedAt={justNow} />);
     const el = screen.getByTestId("time-since-update");
     expect(el.textContent).toBe("0s ago");
+  });
+
+  it("renders correct elapsed time for SQLite datetime format (no Z)", () => {
+    // Simulate a SQLite datetime('now') value: "2025-01-15 12:00:00"
+    const sqliteDatetime = "2025-01-15 12:00:00";
+    // 10 minutes after that UTC timestamp
+    Date.now = () => new Date("2025-01-15T12:10:00Z").getTime();
+
+    render(<TimeSinceUpdate updatedAt={sqliteDatetime} />);
+    const el = screen.getByTestId("time-since-update");
+    expect(el.textContent).toContain("10m");
+    expect(el.textContent).toContain("ago");
   });
 });

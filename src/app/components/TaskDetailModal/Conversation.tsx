@@ -3,7 +3,6 @@ import type { TaskMessage, Task } from "@/lib/types";
 import { QUEUES } from "@/lib/queues";
 import MessageBubble from "./MessageBubble";
 import StateDivider from "./StateDivider";
-import TypingIndicator from "./TypingIndicator";
 
 function getQueueLabel(slug: string): string {
   return QUEUES.find((q) => q.slug === slug)?.label ?? slug;
@@ -33,14 +32,14 @@ export default function Conversation({ messages, task }: ConversationProps) {
   }
 
   return (
-    <div className="border-t border-zinc-100 px-5 pt-4 dark:border-zinc-700">
+    <div className="min-h-0 flex-1 flex flex-col border-t border-zinc-100 px-5 pt-4 dark:border-zinc-700">
       <h3 className="mb-3 flex-shrink-0 text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
         Conversation
       </h3>
       {messages.length === 0 && task.state !== "in_progress" ? (
         <p className="text-sm italic text-zinc-400 dark:text-zinc-500">No messages yet — waiting for the agent…</p>
       ) : (
-        <div className="max-h-64 overflow-y-auto space-y-1 pr-1 pb-2">
+        <div className="min-h-0 flex-1 overflow-y-auto space-y-1 pr-1 pb-2">
           {messageGroups.map((group, gi) => (
             <div key={gi}>
               <StateDivider label={getQueueLabel(group.state)} />
@@ -51,8 +50,6 @@ export default function Conversation({ messages, task }: ConversationProps) {
               </div>
             </div>
           ))}
-          {/* Show typing indicator only if the task is in_progress with no incomplete message yet */}
-          {task.state === "in_progress" && !messages.some((m) => !m.is_complete) && <TypingIndicator />}
           <div ref={messagesEndRef} />
         </div>
       )}

@@ -1,6 +1,22 @@
 import { NextRequest } from "next/server";
 import { getDb } from "@/lib/db";
 import { TaskService, TaskNotFoundError } from "@/lib/taskService";
+import { readStreamingContent } from "@/lib/streamingStore";
+import type { TaskMessage } from "@/lib/types";
+
+/**
+ * Return the best available content for a message:
+ *   - If the message is still streaming, read from its temp .md file on disk.
+ *   - Otherwise (complete), return the SQLite content as-is.
+ */
+function resolveContent(msg: TaskMessage): TaskMessage {
+  if (msg.is_complete) return msg;
+  const diskContent = readStreamingContent(msg.id);
+  if (diskContent !== null) {
+    return { ...msg, content: diskContent };
+  }
+  return msg;
+}
 
 export async function GET(
   request: NextRequest,
@@ -18,23 +34,33 @@ export async function GET(
     start(controller) {
       const service = new TaskService(getDb());
       let lastMessageId = 0;
-      // Track content snapshots of incomplete messages for delta detection
-      const incompleteContent = new Map<number, string>();
+
+      /**
+       * Map of messageId → last content string sent to the client for each
+       * incomplete message that is actively streaming from disk.
+       */
+      const streamingMessages = new Map<number, string>();
 
       function send(data: unknown) {
         controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
       }
 
-      // Send initial full message list
+      // ── Initial snapshot ─────────────────────────────────────────────────
       try {
         const messages = service.listMessages(taskId);
         lastMessageId =
           messages.length > 0 ? Math.max(...messages.map((m) => m.id)) : 0;
-        // Track any already-incomplete messages
-        for (const m of messages) {
-          if (!m.is_complete) incompleteContent.set(m.id, m.content);
-        }
-        send({ type: "init", messages });
+
+        // Enrich incomplete messages with current disk content and start tracking them
+        const enriched = messages.map((m) => {
+          const resolved = resolveContent(m);
+          if (!m.is_complete) {
+            streamingMessages.set(m.id, resolved.content);
+          }
+          return resolved;
+        });
+
+        send({ type: "init", messages: enriched });
       } catch (e) {
         if (e instanceof TaskNotFoundError) {
           controller.close();
@@ -43,37 +69,58 @@ export async function GET(
         throw e;
       }
 
-      // Poll for new messages and content changes every second
+      // ── Polling interval ─────────────────────────────────────────────────
+      // Poll at 100ms for snappy streaming; disk reads are fast.
       const intervalId = setInterval(() => {
         try {
           const messages = service.listMessages(taskId);
 
-          // Detect new messages
+          // 1. Detect NEW messages (by id)
           const newMessages = messages.filter((m) => m.id > lastMessageId);
           if (newMessages.length > 0) {
             lastMessageId = Math.max(...newMessages.map((m) => m.id));
-            send({ type: "new_messages", messages: newMessages });
-            // Track new incomplete messages
-            for (const m of newMessages) {
-              if (!m.is_complete) incompleteContent.set(m.id, m.content);
-            }
+            const enrichedNew = newMessages.map((m) => {
+              const resolved = resolveContent(m);
+              if (!m.is_complete) {
+                streamingMessages.set(m.id, resolved.content);
+              }
+              return resolved;
+            });
+            send({ type: "new_messages", messages: enrichedNew });
           }
 
-          // Detect content updates on tracked incomplete messages
-          for (const m of messages) {
-            if (!incompleteContent.has(m.id)) continue;
-            const prev = incompleteContent.get(m.id)!;
-            if (m.content !== prev || m.is_complete) {
-              incompleteContent.set(m.id, m.content);
-              send({ type: "message_updated", message: m });
-              if (m.is_complete) incompleteContent.delete(m.id);
+          // 2. For tracked streaming messages, check for content updates on disk
+          //    AND detect completion via SQLite (is_complete = 1).
+          const msgById = new Map(messages.map((m) => [m.id, m]));
+
+          for (const [msgId, prevContent] of streamingMessages) {
+            const current = msgById.get(msgId);
+            if (!current) continue;
+
+            if (current.is_complete) {
+              // Message is finalized in SQLite — send the authoritative content
+              streamingMessages.delete(msgId);
+              send({ type: "message_updated", message: current });
+              continue;
+            }
+
+            // Still streaming: read from disk file
+            const diskContent = readStreamingContent(msgId);
+            const latestContent = diskContent ?? current.content;
+
+            if (latestContent !== prevContent) {
+              streamingMessages.set(msgId, latestContent);
+              send({
+                type: "message_updated",
+                message: { ...current, content: latestContent },
+              });
             }
           }
         } catch {
           clearInterval(intervalId);
           controller.close();
         }
-      }, 300);
+      }, 100);
 
       // Clean up when the client disconnects
       request.signal.addEventListener("abort", () => {
