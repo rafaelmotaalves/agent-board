@@ -1,18 +1,19 @@
 "use client";
 
-import type { Task } from "@/lib/types";
+import type { Task, Agent } from "@/lib/types";
 import { Queue, getNextQueue } from "@/lib/queues";
-import { Loader2 } from "lucide-react";
+import { Loader2, TrashIcon } from "lucide-react";
 
 interface TaskCardProps {
   task: Task;
   queue: Queue;
+  assignedAgent?: Agent;
   onApprove: (task: Task, nextQueue: Queue) => void;
   onDelete: (task: Task) => void;
   onClick: (task: Task) => void;
 }
 
-export default function TaskCard({ task, queue, onApprove, onDelete, onClick }: TaskCardProps) {
+export default function TaskCard({ task, queue, assignedAgent, onApprove, onDelete, onClick }: TaskCardProps) {
   const nextQueue = getNextQueue(queue.slug);
 
   return (
@@ -29,6 +30,17 @@ export default function TaskCard({ task, queue, onApprove, onDelete, onClick }: 
       {task.description && (
         <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
           {task.description}
+        </p>
+      )}
+      {task.execution && (
+        <p className="mt-1 line-clamp-2 text-xs text-zinc-400 dark:text-zinc-500">
+          {task.execution.replace(/#+\s/g, "").replace(/[*_`]/g, "")}
+        </p>
+      )}
+      {assignedAgent && (
+        <p className="mt-1 flex items-center gap-1 text-xs text-zinc-400 dark:text-zinc-500">
+          <span className="inline-block h-1.5 w-1.5 rounded-full bg-green-400" aria-hidden="true" />
+          {assignedAgent.name}
         </p>
       )}
       <div className="mt-3 flex items-center justify-between">
@@ -54,7 +66,7 @@ export default function TaskCard({ task, queue, onApprove, onDelete, onClick }: 
             className="cursor-pointer rounded px-2 py-1 text-xs text-zinc-400 transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20 dark:hover:text-red-400"
             aria-label={`Delete task ${task.title}`}
           >
-            ✕
+            <TrashIcon className="h-4 w-4" />
           </button>
         </div>
       </div>
