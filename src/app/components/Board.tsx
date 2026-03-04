@@ -20,6 +20,7 @@ export default function Board() {
     try {
       const data = await apiFetchTasks();
       setTasks(data);
+      setSelectedTask((prev) => (prev ? (data.find((t) => t.id === prev.id) ?? prev) : null));
     } finally {
       setLoading(false);
     }
