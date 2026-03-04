@@ -23,6 +23,8 @@ jobs:
         run: bun install --frozen-lockfile
 
       - name: Test
+        id: tests
+        continue-on-error: true
         run: bun test --reporter=default --reporter=junit --reporter-outfile=./junit.xml
 
       - name: Test Report
@@ -33,6 +35,10 @@ jobs:
           path: ./junit.xml
           reporter: java-junit
           fail-on-error: false
+
+      - name: Check test results
+        if: steps.tests.outcome == 'failure'
+        run: exit 1
 
       - name: Build
         run: bun run build
