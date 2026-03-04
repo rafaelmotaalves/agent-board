@@ -1,4 +1,4 @@
-# AI Board
+# Agent Board
 
 A kanban-style task board where AI agents autonomously work through tasks. Create tasks, assign them to AI agents, and watch them plan and execute work in real time — with streaming responses and live status updates.
 
@@ -65,38 +65,3 @@ bun run test:watch   # Unit tests in watch mode
 bun run test:e2e     # Playwright E2E tests (auto-starts dev server)
 bun run test:e2e:ui  # Playwright UI mode
 ```
-
-## Project Structure
-
-```
-src/
-  app/
-    api/           # REST API routes (tasks, agents, SSE stream)
-    components/    # React components (Board, TaskDetailModal, AgentList)
-    page.tsx       # Entry point
-  lib/
-    agentCaller.ts   # IAgentCaller interface
-    agentPool.ts     # Agent pool management
-    agentService.ts
-    copilotCaller.ts # GitHub Copilot SDK implementation
-    db.ts            # SQLite setup
-    queues.ts        # Queue slug constants
-    taskService.ts   # Task CRUD and state machine
-    types.ts         # Shared TypeScript types
-    worker.ts        # TaskWorker - background queue processor
-  worker.ts          # Worker entry point
-e2e/               # Playwright E2E tests
-```
-
-## Environment Variables
-
-Create a `.env.local` file (never committed) for any secrets:
-
-```env
-# Add any API keys or config required by your agent implementation
-GITHUB_TOKEN=your_token_here
-```
-
-## License
-
-MIT
