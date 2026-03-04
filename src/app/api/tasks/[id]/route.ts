@@ -23,6 +23,7 @@ export async function PATCH(
       description: body.description,
       status: body.status,
       state: body.state,
+      failure_reason: body.failure_reason,
     });
     return NextResponse.json(task);
   } catch (e) {

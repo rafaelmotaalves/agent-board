@@ -1,11 +1,11 @@
 import { IAgentCaller } from "./agentCaller";
 import { SLUG_PLANNING } from "./queues";
-import { Task, TaskMessage } from "./types";
+import { Task } from "./types";
 import { approveAll, CopilotClient, CopilotSession } from "@github/copilot-sdk";
 import logger from "./logger";
 
 const LOCALHOST = "localhost";
-const PLAN_TIMEOUT_MS = 600000; // 10 minutes
+const PLAN_TIMEOUT_MS = 3600000; // 60 minutes
 const PLAN_SYSTEM_MESSAGE = `
 You are in planning mode. Your task is to create a development plan for the given task.
     * Do not execute any changes, just return a detailed plan in markdown format.
@@ -78,7 +78,7 @@ export class CopilotCaller implements IAgentCaller {
         Description: ${task.description}
         Messages: ${messages.join("\n\n")}
         `;
-
+        logger.info({ taskId: task.id, status: task.status, prompt }, "Sending execution prompt to agent session");
         const response = await session.sendAndWait({ prompt: prompt }, PLAN_TIMEOUT_MS);
         return response?.data.content ?? "";
     }

@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   const body = await request.json();
   try {
-    const task = getService().create({ title: body.title, description: body.description, agent_id: body.agent_id ?? null });
+    const task = getService().create({ title: body.title, description: body.description, agent_id: body.agent_id ?? null, status: body.status });
     return NextResponse.json(task, { status: 201 });
   } catch (e) {
     if (e instanceof ValidationError) {

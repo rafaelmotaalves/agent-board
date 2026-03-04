@@ -1,7 +1,7 @@
 import { Database } from "bun:sqlite";
 import path from 'node:path';
-import type { Task, TaskState, Agent, TaskMessage } from "@/lib/types";
-export type { Task, TaskState, Agent, TaskMessage };
+import type { Task, TaskState, Agent, AgentOptions, TaskMessage } from "@/lib/types";
+export type { Task, TaskState, Agent, AgentOptions, TaskMessage };
 export { isValidState } from "@/lib/types";
 
 const DB_PATH = path.join(process.cwd(), "ai-board.db");
@@ -21,6 +21,8 @@ export function getDb(): Database {
         agent_id INTEGER DEFAULT NULL REFERENCES agents(id) ON DELETE SET NULL,
         status TEXT NOT NULL DEFAULT 'planning',
         state TEXT NOT NULL DEFAULT 'pending',
+        failure_reason TEXT DEFAULT NULL,
+        completed_at TEXT DEFAULT NULL,
         created_at TEXT NOT NULL DEFAULT (datetime('now')),
         updated_at TEXT NOT NULL DEFAULT (datetime('now'))
       )
@@ -35,15 +37,30 @@ export function getDb(): Database {
     if (!cols.includes("agent_id")) {
       _db.exec("ALTER TABLE tasks ADD COLUMN agent_id INTEGER DEFAULT NULL REFERENCES agents(id) ON DELETE SET NULL");
     }
+    if (!cols.includes("failure_reason")) {
+      _db.exec("ALTER TABLE tasks ADD COLUMN failure_reason TEXT DEFAULT NULL");
+    }
+    if (!cols.includes("completed_at")) {
+      _db.exec("ALTER TABLE tasks ADD COLUMN completed_at TEXT DEFAULT NULL");
+    }
 
     _db.exec(`
       CREATE TABLE IF NOT EXISTS agents (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL,
         port INTEGER NOT NULL UNIQUE,
+        options TEXT NOT NULL DEFAULT '{}',
         created_at TEXT NOT NULL DEFAULT (datetime('now'))
       )
     `);
+
+    // Migration: add options column if it doesn't exist (for existing DBs)
+    const agentCols = (_db.query("PRAGMA table_info(agents)").all() as { name: string }[]).map(
+      (c) => c.name
+    );
+    if (!agentCols.includes("options")) {
+      _db.exec("ALTER TABLE agents ADD COLUMN options TEXT NOT NULL DEFAULT '{}'");
+    }
 
     _db.exec(`
       CREATE TABLE IF NOT EXISTS task_messages (

@@ -12,14 +12,21 @@ export interface Task {
   agent_id: number | null;
   status: string;
   state: TaskState;
+  failure_reason: string | null;
+  completed_at: string | null;
   created_at: string;
   updated_at: string;
+}
+
+export interface AgentOptions {
+  parallel_planning?: boolean;
 }
 
 export interface Agent {
   id: number;
   name: string;
   port: number;
+  options: AgentOptions;
   created_at: string;
 }
 

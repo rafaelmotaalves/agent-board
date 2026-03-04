@@ -13,8 +13,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "AI Board",
-  description: "Agent task management board",
+  title: "AgentBoard",
+  description: "AgentBoard",
 };
 
 export default function RootLayout({
