@@ -209,5 +209,39 @@ describe("AgentService", () => {
       const updated = service.update(agent.id, { name: "renamed" });
       expect(updated.options.parallel_planning).toBe(true);
     });
+
+    it("throws AgentValidationError when updating with an empty name", () => {
+      const agent = service.create({ name: "valid", port: 8400 });
+      expect(() => service.update(agent.id, { name: "" })).toThrow(AgentValidationError);
+      expect(() => service.update(agent.id, { name: "   " })).toThrow(AgentValidationError);
+    });
+
+    it("throws AgentValidationError when updating with an invalid port", () => {
+      const agent = service.create({ name: "porttest", port: 8500 });
+      expect(() => service.update(agent.id, { port: 0 })).toThrow(AgentValidationError);
+      expect(() => service.update(agent.id, { port: 65536 })).toThrow(AgentValidationError);
+      expect(() => service.update(agent.id, { port: 3.5 })).toThrow(AgentValidationError);
+    });
+
+    it("updates agent port", () => {
+      const agent = service.create({ name: "portchange", port: 8600 });
+      const updated = service.update(agent.id, { port: 8601 });
+      expect(updated.port).toBe(8601);
+    });
+
+    it("trims the name when updating", () => {
+      const agent = service.create({ name: "trimtest", port: 8700 });
+      const updated = service.update(agent.id, { name: "  trimmed  " });
+      expect(updated.name).toBe("trimmed");
+    });
+  });
+
+  // ── duplicate port ─────────────────────────────────────────────────────────
+
+  describe("duplicate port", () => {
+    it("throws when creating an agent with a duplicate port", () => {
+      service.create({ name: "first", port: 9000 });
+      expect(() => service.create({ name: "second", port: 9000 })).toThrow();
+    });
   });
 });

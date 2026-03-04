@@ -29,6 +29,23 @@ function createMockCaller(): IAgentCaller {
   };
 }
 
+/** Fake caller whose methods reject with the given error message. */
+function createFailingCaller(errorMessage = "agent unavailable"): IAgentCaller {
+  return {
+    planTask: () => new Promise((_, rej) => setTimeout(() => rej(new Error(errorMessage)), AGENT_DELAY_MS)),
+    executeTask: () => new Promise((_, rej) => setTimeout(() => rej(new Error(errorMessage)), AGENT_DELAY_MS)),
+    sendMessage: () => new Promise((_, rej) => setTimeout(() => rej(new Error(errorMessage)), AGENT_DELAY_MS)),
+  };
+}
+
+function createFailingAgentPool(errorMessage?: string): AgentPool {
+  const caller = createFailingCaller(errorMessage);
+  return {
+    get: () => Promise.resolve(caller),
+    getAgentOptions: () => ({}),
+  } as unknown as AgentPool;
+}
+
 /**
  * Mock AgentPool — get() resolves synchronously (via microtask) with a mock caller.
  * getAgentOptions() returns configurable options for agent ID 1.
@@ -367,5 +384,101 @@ describe("TaskWorker", () => {
       expect(getProcessingIds(parallelWorker, "development")).toHaveLength(1);
     });
   });
-});
 
+  describe("error handling", () => {
+    it("marks a planning task as failed when the agent throws", async () => {
+      const failWorker = new TaskWorker(service, createFailingAgentPool("something went wrong"));
+      const task = service.create({ title: "Error task", agent_id: 1 });
+
+      failWorker.tick();
+      await flushMicrotasks();
+      expect(service.findById(task.id)!.state).toBe("in_progress");
+
+      jest.advanceTimersByTime(AGENT_DELAY_MS);
+      await flushMicrotasks();
+
+      const failed = service.findById(task.id)!;
+      expect(failed.state).toBe("failed");
+      expect(failed.failure_reason).toBe("something went wrong");
+      expect(failWorker.getProcessingTasks().has("planning")).toBe(false);
+      failWorker.stop();
+    });
+
+    it("marks a development task as failed when the agent throws", async () => {
+      const failWorker = new TaskWorker(service, createFailingAgentPool("dev error"));
+      const task = service.create({ title: "Dev error task", agent_id: 1 });
+      service.update(task.id, { state: "done" });
+      service.update(task.id, { status: "development" });
+
+      failWorker.tick();
+      await flushMicrotasks();
+
+      jest.advanceTimersByTime(AGENT_DELAY_MS);
+      await flushMicrotasks();
+
+      const failed = service.findById(task.id)!;
+      expect(failed.state).toBe("failed");
+      expect(failed.failure_reason).toBe("dev error");
+      expect(failWorker.getProcessingTasks().has("development")).toBe(false);
+      failWorker.stop();
+    });
+
+    it("marks an add_message task as failed when the agent throws", async () => {
+      const failWorker = new TaskWorker(service, createFailingAgentPool("sendMessage failed"));
+      const task = service.create({ title: "Msg error task", agent_id: 1 });
+      service.update(task.id, { state: "done" });
+      service.addUserMessage(task.id, "Please revise");
+
+      failWorker.tick();
+      await flushMicrotasks();
+
+      jest.advanceTimersByTime(AGENT_DELAY_MS);
+      await flushMicrotasks();
+
+      const failed = service.findById(task.id)!;
+      expect(failed.state).toBe("failed");
+      expect(failed.failure_reason).toBe("sendMessage failed");
+      failWorker.stop();
+    });
+  });
+
+  describe("development task completion", () => {
+    it("sets development task to done after agent responds", async () => {
+      const task = service.create({ title: "Execute me", agent_id: 1 });
+      service.update(task.id, { state: "done" });
+      service.update(task.id, { status: "development" });
+
+      worker.tick();
+      await flushMicrotasks();
+      expect(service.findById(task.id)!.state).toBe("in_progress");
+
+      jest.advanceTimersByTime(AGENT_DELAY_MS);
+      await flushMicrotasks();
+
+      expect(service.findById(task.id)!.state).toBe("done");
+      expect(worker.getProcessingTasks().has("development")).toBe(false);
+    });
+
+    it("frees development slot after processing so next dev task can be picked up", async () => {
+      const task1 = service.create({ title: "Dev First", agent_id: 1 });
+      service.update(task1.id, { state: "done" });
+      service.update(task1.id, { status: "development" });
+
+      const task2 = service.create({ title: "Dev Second", agent_id: 1 });
+      service.update(task2.id, { state: "done" });
+      service.update(task2.id, { status: "development" });
+
+      worker.tick();
+      await flushMicrotasks();
+      const firstId = getProcessingId(worker, "development")!;
+
+      jest.advanceTimersByTime(AGENT_DELAY_MS);
+      await flushMicrotasks();
+      expect(worker.getProcessingTasks().has("development")).toBe(false);
+
+      worker.tick();
+      await flushMicrotasks();
+      const secondId = getProcessingId(worker, "development")!;
+      expect(secondId).not.toBe(firstId);
+    });
+  });});
