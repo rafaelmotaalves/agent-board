@@ -5,7 +5,7 @@ import type { Agent } from "@/lib/types";
 
 interface NewTaskFormProps {
   agents: Agent[];
-  onSubmit: (title: string, description: string, agentId: number | null) => Promise<void>;
+  onSubmit: (title: string, description: string, agentId: number) => Promise<void>;
 }
 
 export default function NewTaskForm({ agents, onSubmit }: NewTaskFormProps) {
@@ -17,7 +17,7 @@ export default function NewTaskForm({ agents, onSubmit }: NewTaskFormProps) {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!title.trim()) return;
+    if (!title.trim() || agentId === null) return;
 
     setSubmitting(true);
     try {
@@ -64,7 +64,7 @@ export default function NewTaskForm({ agents, onSubmit }: NewTaskFormProps) {
         onChange={(e) => setAgentId(e.target.value ? Number(e.target.value) : null)}
         className="mt-2 w-full rounded border border-zinc-200 px-3 py-2 text-sm outline-none focus:border-blue-500 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100"
       >
-        <option value="">No agent</option>
+        <option value="" disabled>Select an agent…</option>
         {agents.map((agent) => (
           <option key={agent.id} value={agent.id}>
             {agent.name} :{agent.port}
@@ -74,7 +74,7 @@ export default function NewTaskForm({ agents, onSubmit }: NewTaskFormProps) {
       <div className="mt-2 flex gap-2">
         <button
           type="submit"
-          disabled={submitting || !title.trim()}
+          disabled={submitting || !title.trim() || agentId === null}
           className="cursor-pointer rounded bg-blue-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
         >
           {submitting ? "Creating..." : "Create"}

@@ -49,12 +49,12 @@ export default function Board() {
     return <LoadingSpinner />;
   }
 
-  async function handleCreateTask(title: string, description: string, agentId: number | null) {
+  async function handleCreateTask(title: string, description: string, agentId: number) {
     await createTask(title, description, agentId);
     fetchTasks();
   }
 
-  async function handleCreateDevTask(title: string, description: string, agentId: number | null) {
+  async function handleCreateDevTask(title: string, description: string, agentId: number) {
     await createTask(title, description, agentId, "development");
     fetchTasks();
   }
@@ -76,8 +76,12 @@ export default function Board() {
   }
 
   async function handleDeleteAgent(agent: Agent) {
-    await deleteAgent(agent.id);
-    fetchAgentsData();
+    try {
+      await deleteAgent(agent.id);
+      fetchAgentsData();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Failed to delete agent");
+    }
   }
 
   return (

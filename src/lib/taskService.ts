@@ -6,8 +6,8 @@ import { getDb } from "./db";
 export interface CreateTaskInput {
   title: string;
   description?: string;
-  /** Agent to assign at creation time */
-  agent_id?: number | null;
+  /** Agent to assign at creation time (required) */
+  agent_id: number;
   /** Queue column to start in (default: 'planning'). Cannot be 'done'. */
   status?: string;
 }
@@ -92,7 +92,8 @@ export class TaskService {
     if (status === SLUG_DONE) throw new ValidationError("Cannot create a task with done status");
 
     const description = (input.description ?? "").trim();
-    const agent_id = input.agent_id ?? null;
+    const agent_id = input.agent_id;
+    if (agent_id == null) throw new ValidationError("Agent is required");
     const result = this.db
       .prepare(
         "INSERT INTO tasks (title, description, agent_id, status, state) VALUES (?, ?, ?, ?, 'pending')"
@@ -159,6 +160,19 @@ export class TaskService {
     this.db.prepare("DELETE FROM tasks WHERE id = ?").run(id);
   }
 
+  /**
+   * Marks all in_progress tasks as failed on startup so they don't stay stuck
+   * after a crash/restart. Returns the number of recovered tasks.
+   */
+  recoverInProgressTasks(): number {
+    const result = this.db
+      .prepare(
+        "UPDATE tasks SET state = 'failed', failure_reason = 'Worker restarted while task was in progress', updated_at = datetime('now') WHERE state = 'in_progress'"
+      )
+      .run();
+    return result.changes;
+  }
+
   reset(): void {
     this.db.prepare("DELETE FROM tasks").run();
   }
@@ -193,6 +207,36 @@ export class TaskService {
     return this.db
       .prepare("SELECT * FROM task_messages WHERE id = ?")
       .get(result.lastInsertRowid) as unknown as TaskMessage;
+  }
+
+  /**
+   * Creates a streaming agent message placeholder (is_complete=0).
+   * The worker will update the content as deltas arrive.
+   */
+  createStreamingAgentMessage(taskId: number, taskStatus: string): TaskMessage {
+    const task = this.findById(taskId);
+    if (!task) throw new TaskNotFoundError(taskId);
+
+    const result = this.db
+      .prepare(
+        "INSERT INTO task_messages (task_id, role, content, task_state_at_creation, is_complete) VALUES (?, 'agent', '', ?, 0)"
+      )
+      .run(taskId, taskStatus);
+
+    return this.db
+      .prepare("SELECT * FROM task_messages WHERE id = ?")
+      .get(result.lastInsertRowid) as unknown as TaskMessage;
+  }
+
+  /**
+   * Updates the content of a streaming message. Pass is_complete=true to finalize.
+   */
+  updateMessageContent(messageId: number, content: string, isComplete: boolean): void {
+    this.db
+      .prepare(
+        "UPDATE task_messages SET content = ?, is_complete = ? WHERE id = ?"
+      )
+      .run(content, isComplete ? 1 : 0, messageId);
   }
 
   /**

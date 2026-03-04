@@ -4,6 +4,7 @@ import { AgentService, AgentValidationError, AgentNotFoundError } from "@/lib/ag
 
 function createDb(): Database {
   const db = new Database(":memory:");
+  db.exec("PRAGMA foreign_keys = ON");
   db.exec(`
     CREATE TABLE agents (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -11,6 +12,20 @@ function createDb(): Database {
       port INTEGER NOT NULL UNIQUE,
       options TEXT NOT NULL DEFAULT '{}',
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )
+  `);
+  db.exec(`
+    CREATE TABLE tasks (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      title TEXT NOT NULL,
+      description TEXT DEFAULT '',
+      agent_id INTEGER NOT NULL REFERENCES agents(id) ON DELETE RESTRICT,
+      status TEXT NOT NULL DEFAULT 'planning',
+      state TEXT NOT NULL DEFAULT 'pending',
+      failure_reason TEXT DEFAULT NULL,
+      completed_at TEXT DEFAULT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     )
   `);
   return db;
@@ -105,6 +120,13 @@ describe("AgentService", () => {
       const remaining = service.list();
       expect(remaining).toHaveLength(1);
       expect(remaining[0].id).toBe(a1.id);
+    });
+
+    it("throws AgentValidationError when agent has assigned tasks", () => {
+      const agent = service.create({ name: "busy-agent", port: 6003 });
+      const db = (service as unknown as { db: Database }).db;
+      db.prepare("INSERT INTO tasks (title, agent_id) VALUES (?, ?)").run("task-1", agent.id);
+      expect(() => service.delete(agent.id)).toThrow(AgentValidationError);
     });
   });
 

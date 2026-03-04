@@ -51,7 +51,8 @@ export default function Conversation({ messages, task }: ConversationProps) {
               </div>
             </div>
           ))}
-          {task.state === "in_progress" && <TypingIndicator />}
+          {/* Show typing indicator only if the task is in_progress with no incomplete message yet */}
+          {task.state === "in_progress" && !messages.some((m) => !m.is_complete) && <TypingIndicator />}
           <div ref={messagesEndRef} />
         </div>
       )}

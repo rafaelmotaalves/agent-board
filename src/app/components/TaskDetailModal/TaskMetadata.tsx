@@ -33,7 +33,7 @@ export default function TaskMetadata({ task, queue, agents }: TaskMetadataProps)
         <div>
           <dt className="font-medium uppercase tracking-wide">Assigned Agent</dt>
           <dd className="mt-0.5 text-zinc-700 dark:text-zinc-200">
-            {agents.find((a) => a.id === task.agent_id)?.name ?? <span className="italic text-zinc-400">Unassigned</span>}
+            {agents.find((a) => a.id === task.agent_id)?.name ?? "Unknown"}
           </dd>
         </div>
         {task.completed_at && (

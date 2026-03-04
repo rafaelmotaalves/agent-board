@@ -1,4 +1,4 @@
-import { IAgentCaller } from "./agentCaller";
+import { DeltaCallback, IAgentCaller } from "./agentCaller";
 import { SLUG_PLANNING } from "./queues";
 import { Task } from "./types";
 import { approveAll, CopilotClient, CopilotSession } from "@github/copilot-sdk";
@@ -33,6 +33,7 @@ export class CopilotCaller implements IAgentCaller {
         logger.info({ taskId }, "Creating new execution session for task planning");
         const session = await this.client.createSession({ 
             onPermissionRequest: approveAll,
+            streaming: true,
             systemMessage: {
                 content: PLAN_SYSTEM_MESSAGE.trim()
             }
@@ -48,12 +49,13 @@ export class CopilotCaller implements IAgentCaller {
         logger.info({ taskId }, "Creating new execution session for task execution");
         const session = await this.client.createSession({ 
             onPermissionRequest: approveAll,
+            streaming: true,
         });
         this.executionSessions.set(taskId, session);
         return session;
     }
 
-    async planTask(task: Task): Promise<string> {
+    async planTask(task: Task, onDelta?: DeltaCallback): Promise<string> {
         logger.info({ taskId: task.id, status: task.status }, "Starting task planning in agent session");
         const session = await this.getPlanningSession(task.id);
 
@@ -63,11 +65,19 @@ export class CopilotCaller implements IAgentCaller {
         Description: ${task.description}
         `;
 
-        const response = await session.sendAndWait({ prompt: prompt }, PLAN_TIMEOUT_MS);
-        return response?.data.content ?? "";
+        const unsubscribe = onDelta
+            ? session.on("assistant.message_delta", (event) => onDelta(event.data.deltaContent))
+            : null;
+
+        try {
+            const response = await session.sendAndWait({ prompt: prompt }, PLAN_TIMEOUT_MS);
+            return response?.data.content ?? "";
+        } finally {
+            unsubscribe?.();
+        }
     }
 
-    async executeTask(task: Task, messages: string[]): Promise<string> {
+    async executeTask(task: Task, messages: string[], onDelta?: DeltaCallback): Promise<string> {
         logger.info({ taskId: task.id, status: task.status }, "Starting task execution in agent session");
         const session = await this.getExecutionSession(task.id);
 
@@ -77,19 +87,38 @@ export class CopilotCaller implements IAgentCaller {
         Task: ${task.title}
         Description: ${task.description}
         Messages: ${messages.join("\n\n")}
+
+        Update the user with your progress as you work through the implementation, but do not return anything until the task is fully complete.
         `;
         logger.info({ taskId: task.id, status: task.status, prompt }, "Sending execution prompt to agent session");
-        const response = await session.sendAndWait({ prompt: prompt }, PLAN_TIMEOUT_MS);
-        return response?.data.content ?? "";
+
+        const unsubscribe = onDelta
+            ? session.on("assistant.message_delta", (event) => onDelta(event.data.deltaContent))
+            : null;
+
+        try {
+            const response = await session.sendAndWait({ prompt: prompt }, PLAN_TIMEOUT_MS);
+            return response?.data.content ?? "";
+        } finally {
+            unsubscribe?.();
+        }
     }
 
-    async sendMessage(task: Task, message: string): Promise<string> {
+    async sendMessage(task: Task, message: string, onDelta?: DeltaCallback): Promise<string> {
         logger.info({ taskId: task.id, message, status: task.status }, "Sending message to agent session");
         const session = task.status == SLUG_PLANNING ? 
             await this.getPlanningSession(task.id) : await this.getExecutionSession(task.id);
         const prompt = message;
 
-        const response = await session.sendAndWait({ prompt: prompt }, PLAN_TIMEOUT_MS);
-        return response?.data.content ?? "";
+        const unsubscribe = onDelta
+            ? session.on("assistant.message_delta", (event) => onDelta(event.data.deltaContent))
+            : null;
+
+        try {
+            const response = await session.sendAndWait({ prompt: prompt }, PLAN_TIMEOUT_MS);
+            return response?.data.content ?? "";
+        } finally {
+            unsubscribe?.();
+        }
     }
 }

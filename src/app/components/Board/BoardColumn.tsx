@@ -9,7 +9,7 @@ interface BoardColumnProps {
   agents: Agent[];
   onDelete: (task: Task) => void;
   onClick: (task: Task) => void;
-  onCreateTask?: (title: string, description: string, agentId: number | null) => Promise<void>;
+  onCreateTask?: (title: string, description: string, agentId: number) => Promise<void>;
 }
 
 export default function BoardColumn({ queue, tasks, agents, onDelete, onClick, onCreateTask }: BoardColumnProps) {

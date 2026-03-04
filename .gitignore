@@ -40,4 +40,15 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-ai-board.db
+# sqlite database
+*.db
+*.db-shm
+*.db-wal
+
+# test artifacts
+/playwright-report/
+/test-results/
+test-output.txt
+
+# swc cache
+.swc/

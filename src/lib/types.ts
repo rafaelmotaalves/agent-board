@@ -9,7 +9,7 @@ export interface Task {
   id: number;
   title: string;
   description: string;
-  agent_id: number | null;
+  agent_id: number;
   status: string;
   state: TaskState;
   failure_reason: string | null;
@@ -38,4 +38,6 @@ export interface TaskMessage {
   /** The task status (queue/phase) at the time the message was added, e.g. 'planning', 'development', 'done' */
   task_state_at_creation: string;
   created_at: string;
+  /** 0 = streaming in progress, 1 = complete */
+  is_complete: number;
 }

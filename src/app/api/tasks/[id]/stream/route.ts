@@ -18,6 +18,8 @@ export async function GET(
     start(controller) {
       const service = new TaskService(getDb());
       let lastMessageId = 0;
+      // Track content snapshots of incomplete messages for delta detection
+      const incompleteContent = new Map<number, string>();
 
       function send(data: unknown) {
         controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
@@ -28,6 +30,10 @@ export async function GET(
         const messages = service.listMessages(taskId);
         lastMessageId =
           messages.length > 0 ? Math.max(...messages.map((m) => m.id)) : 0;
+        // Track any already-incomplete messages
+        for (const m of messages) {
+          if (!m.is_complete) incompleteContent.set(m.id, m.content);
+        }
         send({ type: "init", messages });
       } catch (e) {
         if (e instanceof TaskNotFoundError) {
@@ -37,20 +43,37 @@ export async function GET(
         throw e;
       }
 
-      // Poll for new messages every second
+      // Poll for new messages and content changes every second
       const intervalId = setInterval(() => {
         try {
           const messages = service.listMessages(taskId);
+
+          // Detect new messages
           const newMessages = messages.filter((m) => m.id > lastMessageId);
           if (newMessages.length > 0) {
             lastMessageId = Math.max(...newMessages.map((m) => m.id));
             send({ type: "new_messages", messages: newMessages });
+            // Track new incomplete messages
+            for (const m of newMessages) {
+              if (!m.is_complete) incompleteContent.set(m.id, m.content);
+            }
+          }
+
+          // Detect content updates on tracked incomplete messages
+          for (const m of messages) {
+            if (!incompleteContent.has(m.id)) continue;
+            const prev = incompleteContent.get(m.id)!;
+            if (m.content !== prev || m.is_complete) {
+              incompleteContent.set(m.id, m.content);
+              send({ type: "message_updated", message: m });
+              if (m.is_complete) incompleteContent.delete(m.id);
+            }
           }
         } catch {
           clearInterval(intervalId);
           controller.close();
         }
-      }, 1000);
+      }, 300);
 
       // Clean up when the client disconnects
       request.signal.addEventListener("abort", () => {
