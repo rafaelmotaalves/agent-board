@@ -33,7 +33,6 @@ jobs:
         if: always()
         with:
           report-path: ./junit.xml
-          summary-report: true
           failed-report: true
           annotate: true
           pull-request-report: true
