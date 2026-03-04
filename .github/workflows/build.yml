@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: read
+  checks: write
 
 jobs:
   build:
@@ -22,7 +23,16 @@ jobs:
         run: bun install --frozen-lockfile
 
       - name: Test
-        run: bun test
+        run: bun test --reporter=default --reporter=junit --reporter-outfile=./junit.xml
+
+      - name: Test Report
+        uses: dorny/test-reporter@v2
+        if: always()
+        with:
+          name: Unit Tests
+          path: ./junit.xml
+          reporter: java-junit
+          fail-on-error: false
 
       - name: Build
         run: bun run build
