@@ -33,7 +33,6 @@ jobs:
         if: always()
         with:
           report-path: ./junit.xml
-          github-token: ${{ secrets.GITHUB_TOKEN }}
           summary-report: true
           failed-report: true
           annotate: true
@@ -47,6 +46,8 @@ jobs:
                 "action": "convert"
               }
             }
-
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          
       - name: Build
         run: bun run build
