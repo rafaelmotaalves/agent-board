@@ -1,7 +1,7 @@
 import { Database } from "bun:sqlite";
 import path from 'node:path';
-import type { Task, TaskState, Agent } from "@/lib/types";
-export type { Task, TaskState, Agent };
+import type { Task, TaskState, Agent, TaskMessage } from "@/lib/types";
+export type { Task, TaskState, Agent, TaskMessage };
 export { isValidState } from "@/lib/types";
 
 const DB_PATH = path.join(process.cwd(), "ai-board.db");
@@ -46,6 +46,16 @@ export function getDb(): Database {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL,
         port INTEGER NOT NULL UNIQUE,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )
+    `);
+
+    _db.exec(`
+      CREATE TABLE IF NOT EXISTS task_messages (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+        content TEXT NOT NULL,
+        task_state_at_creation TEXT NOT NULL,
         created_at TEXT NOT NULL DEFAULT (datetime('now'))
       )
     `);

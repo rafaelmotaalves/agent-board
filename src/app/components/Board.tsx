@@ -160,6 +160,7 @@ export default function Board() {
           onClose={() => setSelectedTask(null)}
           onApprove={handleApprove}
           onDelete={handleDelete}
+          onTaskUpdated={fetchTasks}
         />
       )}
     </div>

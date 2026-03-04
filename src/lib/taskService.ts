@@ -1,5 +1,5 @@
 import { Database } from "bun:sqlite";
-import { Task, TaskState, isValidState } from "@/lib/types";
+import { Task, TaskState, isValidState, TaskMessage } from "@/lib/types";
 import { isValidQueue, SLUG_DONE } from "@/lib/queues";
 import { getDb } from "./db";
 
@@ -72,6 +72,17 @@ export class TaskService {
     return result ?? undefined;
   }
 
+  /** Returns the oldest add_message task for the given queue status, or undefined if none. */
+  findNextAddMessage(status: string): Task | undefined {
+    if (!isValidQueue(status)) throw new ValidationError("Invalid status");
+    const result = this.db
+      .prepare(
+        "SELECT * FROM tasks WHERE status = ? AND state = 'add_message' ORDER BY updated_at ASC LIMIT 1"
+      )
+      .get(status) as Task | null;
+    return result ?? undefined;
+  }
+
   create(input: CreateTaskInput): Task {
     const title = input.title?.trim();
     if (!title) throw new ValidationError("Title is required");
@@ -137,5 +148,49 @@ export class TaskService {
 
   reset(): void {
     this.db.prepare("DELETE FROM tasks").run();
+  }
+
+  // ── Messages ────────────────────────────────────────────────────────────────
+
+  /**
+   * Adds a message to a task. Only allowed when the task is in 'done' state.
+   * After adding, the task state is set to 'add_message' for the worker to pick up.
+   */
+  addMessage(taskId: number, content: string): TaskMessage {
+    const task = this.findById(taskId);
+    if (!task) throw new TaskNotFoundError(taskId);
+    if (task.state !== "done") {
+      throw new ValidationError("Messages can only be added when the task is in 'done' state");
+    }
+
+    const trimmed = content?.trim();
+    if (!trimmed) throw new ValidationError("Message content is required");
+
+    const result = this.db
+      .prepare(
+        "INSERT INTO task_messages (task_id, content, task_state_at_creation) VALUES (?, ?, ?)"
+      )
+      .run(taskId, trimmed, task.state);
+
+    return this.db
+      .prepare("SELECT * FROM task_messages WHERE id = ?")
+      .get(result.lastInsertRowid) as unknown as TaskMessage;
+  }
+
+  listMessages(taskId: number): TaskMessage[] {
+    const task = this.findById(taskId);
+    if (!task) throw new TaskNotFoundError(taskId);
+    return this.db
+      .prepare("SELECT * FROM task_messages WHERE task_id = ? ORDER BY created_at ASC")
+      .all(taskId) as TaskMessage[];
+  }
+
+  getLastMessage(taskId: number): TaskMessage | undefined {
+    const task = this.findById(taskId);
+    if (!task) throw new TaskNotFoundError(taskId);
+    const result = this.db
+      .prepare("SELECT * FROM task_messages WHERE task_id = ? ORDER BY created_at DESC LIMIT 1")
+      .get(taskId) as TaskMessage | null;
+    return result ?? undefined;
   }
 }
