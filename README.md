@@ -23,6 +23,22 @@ A kanban-style task board where AI agents autonomously work through tasks. Creat
 | Unit tests | Bun built-in test runner + React Testing Library |
 | E2E tests | [Playwright](https://playwright.dev) |
 
+## Quick Start with `bunx`
+
+Run the development server without cloning or installing:
+
+```bash
+bunx agent-board
+```
+
+You can also specify a command:
+
+```bash
+bunx agent-board dev     # Dev server (default)
+bunx agent-board build   # Production build
+bunx agent-board start   # Start production server
+```
+
 ## Getting Started
 
 ### Prerequisites
