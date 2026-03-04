@@ -6,9 +6,5 @@ export interface IAgentCaller
 
     planTask(task: Task): Promise<string>;
 
-    executeTask(task: Task): Promise<string>;
-
-    revisePlan(task: Task, messages: TaskMessage[]): Promise<string>;
-
-    reviseExecution(task: Task, messages: TaskMessage[]): Promise<string>;
+    executeTask(task: Task, messages: string[]): Promise<string>;
 }

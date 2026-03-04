@@ -39,8 +39,7 @@ export async function POST(
 
   const body = await request.json();
   try {
-    const message = getService().addMessage(taskId, body.content);
-    getService().update(taskId, { state: "add_message" });
+    const message = getService().addUserMessage(taskId, body.content);
     return NextResponse.json(message, { status: 201 });
   } catch (e) {
     if (e instanceof TaskNotFoundError) {

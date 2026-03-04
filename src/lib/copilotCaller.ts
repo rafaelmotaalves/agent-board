@@ -2,50 +2,60 @@ import { IAgentCaller } from "./agentCaller";
 import { SLUG_PLANNING } from "./queues";
 import { Task, TaskMessage } from "./types";
 import { approveAll, CopilotClient, CopilotSession } from "@github/copilot-sdk";
+import logger from "./logger";
 
 const LOCALHOST = "localhost";
 const PLAN_TIMEOUT_MS = 600000; // 10 minutes
-const PLAN_SYSTEM_MESSAGE = `You are in planning mode. Your task is to create a development plan for the given task. Do not execute any changes, just return a detailed plan in markdown format. Return only the plan, **do not include any additional text**`;
+const PLAN_SYSTEM_MESSAGE = `
+You are in planning mode. Your task is to create a development plan for the given task.
+    * Do not execute any changes, just return a detailed plan in markdown format.
+    * Return the whole plan, **do not generate any files or code snippets separately**.
+    * Return only the plan, **do not include any additional text**`;
 
 export class CopilotCaller implements IAgentCaller {
     private readonly client: CopilotClient;
-    private planningSession: CopilotSession | null;
-    private executionSession: CopilotSession | null;
+    private planningSessions: Map<number, CopilotSession>;
+    private executionSessions: Map<number, CopilotSession>;
     
     constructor(port: number) 
     {
         this.client = new CopilotClient({ 
             cliUrl: `${LOCALHOST}:${port}`,
         });
-        this.planningSession = null;
-        this.executionSession = null;
+        this.planningSessions = new Map();
+        this.executionSessions = new Map();
     }
 
-    private async getPlanningSession(): Promise<CopilotSession> {
-        if (this.planningSession) {
-            return this.planningSession;
+    private async getPlanningSession(taskId: number): Promise<CopilotSession> {
+        if (this.planningSessions.has(taskId)) {
+            return this.planningSessions.get(taskId)!;
         }
-        this.planningSession = await this.client.createSession({ 
+        logger.info({ taskId }, "Creating new execution session for task planning");
+        const session = await this.client.createSession({ 
             onPermissionRequest: approveAll,
             systemMessage: {
-                content: PLAN_SYSTEM_MESSAGE
+                content: PLAN_SYSTEM_MESSAGE.trim()
             }
         });
-        return this.planningSession;
+        this.planningSessions.set(taskId, session);
+        return session;
     }
 
-    private async getExecutionSession(): Promise<CopilotSession> {
-        if (this.executionSession) {
-            return this.executionSession;
+    private async getExecutionSession(taskId: number): Promise<CopilotSession> {
+        if (this.executionSessions.has(taskId)) {
+            return this.executionSessions.get(taskId)!;
         }
-        this.executionSession = await this.client.createSession({ 
+        logger.info({ taskId }, "Creating new execution session for task execution");
+        const session = await this.client.createSession({ 
             onPermissionRequest: approveAll,
         });
-        return this.executionSession;
+        this.executionSessions.set(taskId, session);
+        return session;
     }
 
     async planTask(task: Task): Promise<string> {
-        const session = await this.getPlanningSession();
+        logger.info({ taskId: task.id, status: task.status }, "Starting task planning in agent session");
+        const session = await this.getPlanningSession(task.id);
 
         const prompt = `
         Create a development plan for the following task.
@@ -57,81 +67,27 @@ export class CopilotCaller implements IAgentCaller {
         return response?.data.content ?? "";
     }
 
-    async executeTask(task: Task): Promise<string> {
-        const session = await this.getExecutionSession();
+    async executeTask(task: Task, messages: string[]): Promise<string> {
+        logger.info({ taskId: task.id, status: task.status }, "Starting task execution in agent session");
+        const session = await this.getExecutionSession(task.id);
 
         const prompt = `
-        Implement the following task according to the provided plan.
+        Implement the following task. Use the plan messages to guide your implementation:
 
         Task: ${task.title}
         Description: ${task.description}
-        Plan: ${task.plan}
+        Messages: ${messages.join("\n\n")}
         `;
 
         const response = await session.sendAndWait({ prompt: prompt }, PLAN_TIMEOUT_MS);
         return response?.data.content ?? "";
     }
 
-    async sendMessage(task: Task, message: TaskMessage): Promise<string> {
+    async sendMessage(task: Task, message: string): Promise<string> {
+        logger.info({ taskId: task.id, message, status: task.status }, "Sending message to agent session");
         const session = task.status == SLUG_PLANNING ? 
-            await this.getPlanningSession() : await this.getExecutionSession();
-        const prompt = message.content;
-
-        const response = await session.sendAndWait({ prompt: prompt }, PLAN_TIMEOUT_MS);
-        return response?.data.content ?? "";
-    }
-
-    async revisePlan(task: Task, messages: TaskMessage[]): Promise<string> {
-        const session = await this.client.createSession({ 
-            onPermissionRequest: approveAll,
-            systemMessage: {
-                content: PLAN_SYSTEM_MESSAGE
-            },
-        });
-
-        const messagesText = messages
-            .map((m, i) => `Message ${i + 1} (added while task was in '${m.task_state_at_creation}' state):\n${m.content}`)
-            .join("\n\n");
-
-        const prompt = `
-        Revise the development plan for the following task based on the additional messages/feedback provided.
-
-        Task: ${task.title}
-        Description: ${task.description}
-        Current Plan: ${task.plan ?? "(none)"}
-
-        Additional Messages/Feedback:
-        ${messagesText}
-
-        Please produce an updated plan taking the feedback into account.
-        `;
-
-        const response = await session.sendAndWait({ prompt: prompt }, PLAN_TIMEOUT_MS);
-        return response?.data.content ?? "";
-    }
-
-    async reviseExecution(task: Task, messages: TaskMessage[]): Promise<string> {
-        const session = await this.client.createSession({ 
-            onPermissionRequest: approveAll, 
-        });
-
-        const messagesText = messages
-            .map((m, i) => `Message ${i + 1} (added while task was in '${m.task_state_at_creation}' state):\n${m.content}`)
-            .join("\n\n");
-
-        const prompt = `
-        Re-implement the following task based on the additional messages/feedback provided.
-
-        Task: ${task.title}
-        Description: ${task.description}
-        Plan: ${task.plan ?? "(none)"}
-        Previous Execution: ${task.execution ?? "(none)"}
-
-        Additional Messages/Feedback:
-        ${messagesText}
-
-        Please produce an updated implementation taking the feedback into account.
-        `;
+            await this.getPlanningSession(task.id) : await this.getExecutionSession(task.id);
+        const prompt = message;
 
         const response = await session.sendAndWait({ prompt: prompt }, PLAN_TIMEOUT_MS);
         return response?.data.content ?? "";

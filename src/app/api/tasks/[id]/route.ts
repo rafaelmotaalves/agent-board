@@ -21,7 +21,6 @@ export async function PATCH(
     const task = getService().update(taskId, {
       title: body.title,
       description: body.description,
-      plan: body.plan,
       status: body.status,
       state: body.state,
     });

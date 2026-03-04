@@ -3,9 +3,13 @@
 import { useEffect, useRef, useState } from "react";
 import type { Task, Agent, TaskMessage } from "@/lib/types";
 import { Queue, getNextQueue, QUEUES } from "@/lib/queues";
-import { Loader2, X, MessageSquarePlus } from "lucide-react";
+import { Loader2, X, MessageSquarePlus, Bot, User } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { fetchTaskMessages, addTaskMessage } from "@/lib/api";
+
+function getQueueLabel(slug: string): string {
+  return QUEUES.find((q) => q.slug === slug)?.label ?? slug;
+}
 
 interface TaskDetailModalProps {
   task: Task;
@@ -66,12 +70,23 @@ export default function TaskDetailModal({ task, agents, onClose, onApprove, onDe
   };
 
   const stateBadge: Record<string, string> = {
-    pending: "bg-zinc-100 text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300",
+    planning: "bg-zinc-100 text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300",
     in_progress: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300",
     done: "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300",
     add_message: "bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300",
     failed: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300",
   };
+
+  // Group messages by consecutive task_state_at_creation to render dividers on transitions
+  const messageGroups: { state: string; messages: TaskMessage[] }[] = [];
+  for (const msg of messages) {
+    const last = messageGroups[messageGroups.length - 1];
+    if (last && last.state === msg.task_state_at_creation) {
+      last.messages.push(msg);
+    } else {
+      messageGroups.push({ state: msg.task_state_at_creation, messages: [msg] });
+    }
+  }
 
   return (
     <dialog
@@ -80,6 +95,7 @@ export default function TaskDetailModal({ task, agents, onClose, onApprove, onDe
       onClick={handleBackdropClick}
       className="m-auto w-full max-w-2xl rounded-xl border border-zinc-200 bg-white p-0 shadow-xl backdrop:bg-black/40 dark:border-zinc-700 dark:bg-zinc-800"
     >
+      {/* Header */}
       <div className="flex items-start justify-between border-b border-zinc-100 px-5 py-4 dark:border-zinc-700">
         <div className="flex items-center gap-2">
           <span className="text-xs font-medium text-zinc-400 dark:text-zinc-500">#{task.id}</span>
@@ -117,10 +133,8 @@ export default function TaskDetailModal({ task, agents, onClose, onApprove, onDe
 
       <div className="px-5 py-4">
         <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">{task.title}</h2>
-        {task.description ? (
-          <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">{task.description}</p>
-        ) : (
-          <p className="mt-2 text-sm italic text-zinc-300 dark:text-zinc-600">No description</p>
+        {task.description && (
+          <p className="mt-1.5 text-sm text-zinc-600 dark:text-zinc-400 whitespace-pre-wrap">{task.description}</p>
         )}
 
         <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2 text-xs text-zinc-500 dark:text-zinc-400">
@@ -140,68 +154,84 @@ export default function TaskDetailModal({ task, agents, onClose, onApprove, onDe
               {new Date(task.updated_at).toISOString()}
             </dd>
           </div>
+          <div>
+            <dt className="font-medium uppercase tracking-wide">Assigned Agent</dt>
+            <dd className="mt-0.5 text-zinc-700 dark:text-zinc-200">
+              {agents.find((a) => a.id === task.agent_id)?.name ?? <span className="italic text-zinc-400">Unassigned</span>}
+            </dd>
+          </div>
         </dl>
 
-        <div className="mt-4">
-          <label className="block text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
-            Assigned Agent
-          </label>
-          <p className="mt-1 text-sm text-zinc-700 dark:text-zinc-200">
-            {agents.find((a) => a.id === task.agent_id)?.name ?? <span className="italic text-zinc-400">Unassigned</span>}
-          </p>
+        {/* Conversation thread */}
+        <div className="mt-5 border-t border-zinc-100 pt-4 dark:border-zinc-700">
+          <h3 className="mb-3 text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+            Conversation
+          </h3>
+
+          {messages.length === 0 ? (
+            <p className="text-sm italic text-zinc-400 dark:text-zinc-500">No messages yet — waiting for the agent…</p>
+          ) : (
+            <div className="space-y-1">
+              {messageGroups.map((group, gi) => (
+                <div key={gi}>
+                  {/* Status (queue) divider */}
+                  <div className="my-3 flex items-center gap-2">
+                    <div className="h-px flex-1 bg-zinc-100 dark:bg-zinc-700" />
+                    <span className="rounded-full px-2 py-0.5 text-xs font-medium bg-zinc-100 text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300">
+                      {getQueueLabel(group.state)}
+                    </span>
+                    <div className="h-px flex-1 bg-zinc-100 dark:bg-zinc-700" />
+                  </div>
+
+                  <div className="space-y-2">
+                    {group.messages.map((msg) => {
+                      const isUser = msg.role === "user";
+                      return (
+                        <div key={msg.id} className={`flex gap-2 ${isUser ? "flex-row-reverse" : "flex-row"}`}>
+                          {/* Avatar */}
+                          <div className={`mt-1 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full text-white ${isUser ? "bg-zinc-500" : "bg-blue-600"}`}>
+                            {isUser
+                              ? <User className="h-3.5 w-3.5" aria-hidden="true" />
+                              : <Bot className="h-3.5 w-3.5" aria-hidden="true" />}
+                          </div>
+                          {/* Bubble */}
+                          <div className={`max-w-[80%] ${isUser ? "items-end" : "items-start"} flex flex-col`}>
+                            <div className={`rounded-xl px-3 py-2 text-sm ${isUser
+                              ? "rounded-tr-sm bg-zinc-100 text-zinc-800 dark:bg-zinc-700 dark:text-zinc-100"
+                              : "rounded-tl-sm bg-blue-50 text-zinc-800 dark:bg-blue-900/30 dark:text-zinc-100"
+                            }`}>
+                              {isUser ? (
+                                <p className="whitespace-pre-wrap">{msg.content}</p>
+                              ) : (
+                                <div className="prose prose-sm max-w-none dark:prose-invert prose-headings:text-zinc-800 prose-p:text-zinc-600 prose-code:rounded prose-code:bg-zinc-100 prose-code:px-1 prose-code:text-zinc-800 dark:prose-headings:text-zinc-100 dark:prose-p:text-zinc-300 dark:prose-code:bg-zinc-700 dark:prose-code:text-zinc-200">
+                                  <ReactMarkdown>{msg.content}</ReactMarkdown>
+                                </div>
+                              )}
+                            </div>
+                            <p className="mt-0.5 px-1 text-xs text-zinc-400 dark:text-zinc-500">
+                              {new Date(msg.created_at).toISOString()}
+                            </p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
-        {task.plan && (
-          <div className="mt-5 border-t border-zinc-100 pt-4 dark:border-zinc-700">
-            <h3 className="mb-2 text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">Plan</h3>
-            <div className="prose prose-sm max-w-none dark:prose-invert prose-headings:text-zinc-800 prose-p:text-zinc-600 prose-code:rounded prose-code:bg-zinc-100 prose-code:px-1 prose-code:text-zinc-800 dark:prose-headings:text-zinc-100 dark:prose-p:text-zinc-300 dark:prose-code:bg-zinc-700 dark:prose-code:text-zinc-200">
-              <ReactMarkdown>{task.plan}</ReactMarkdown>
-            </div>
-          </div>
-        )}
-
-        {task.execution && (
-          <div className="mt-5 border-t border-zinc-100 pt-4 dark:border-zinc-700">
-            <h3 className="mb-2 text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">Execution</h3>
-            <div className="prose prose-sm max-w-none dark:prose-invert prose-headings:text-zinc-800 prose-p:text-zinc-600 prose-code:rounded prose-code:bg-zinc-100 prose-code:px-1 prose-code:text-zinc-800 dark:prose-headings:text-zinc-100 dark:prose-p:text-zinc-300 dark:prose-code:bg-zinc-700 dark:prose-code:text-zinc-200">
-              <ReactMarkdown>{task.execution}</ReactMarkdown>
-            </div>
-          </div>
-        )}
-
-        {/* Messages history */}
-        {messages.length > 0 && (
-          <div className="mt-5 border-t border-zinc-100 pt-4 dark:border-zinc-700">
-            <h3 className="mb-3 text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
-              Comments
-            </h3>
-            <ul className="space-y-3">
-              {messages.map((msg) => (
-                <li key={msg.id} className="rounded-lg border border-zinc-100 bg-zinc-50 p-3 dark:border-zinc-700 dark:bg-zinc-900/40">
-                  <p className="text-sm text-zinc-700 dark:text-zinc-200 whitespace-pre-wrap">{msg.content}</p>
-                  <p className="mt-1 text-xs text-zinc-400 dark:text-zinc-500">
-                    Added while task was <span className="font-medium">{msg.task_state_at_creation}</span>
-                    {" · "}
-                    {new Date(msg.created_at).toISOString()}
-                  </p>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-
-        {/* Add comment — only available when task is done */}
-        {task.state === "done" && (
           <div className="mt-5 border-t border-zinc-100 pt-4 dark:border-zinc-700">
             <h3 className="mb-2 flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
               <MessageSquarePlus className="h-3.5 w-3.5" aria-hidden="true" />
-              Add Comment
+              Send Message
             </h3>
             <form onSubmit={handleAddComment} className="space-y-2">
               <textarea
                 value={newComment}
                 onChange={(e) => setNewComment(e.target.value)}
-                placeholder="Add a comment or feedback — the agent will revise the output based on it…"
+                placeholder="Send a message — the agent will continue based on it…"
                 rows={3}
                 className="w-full rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm text-zinc-800 placeholder-zinc-400 focus:border-blue-400 focus:outline-none focus:ring-1 focus:ring-blue-400 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100 dark:placeholder-zinc-500 dark:focus:border-blue-500 dark:focus:ring-blue-500"
                 disabled={submittingComment}
@@ -217,12 +247,11 @@ export default function TaskDetailModal({ task, agents, onClose, onApprove, onDe
                 {submittingComment ? (
                   <><Loader2 className="mr-1 inline-block h-3 w-3 animate-spin" aria-hidden="true" />Sending…</>
                 ) : (
-                  "Send Comment"
+                  "Send"
                 )}
               </button>
             </form>
           </div>
-        )}
       </div>
     </dialog>
   );

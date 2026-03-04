@@ -9,8 +9,6 @@ export interface Task {
   id: number;
   title: string;
   description: string;
-  plan: string | null;
-  execution: string | null;
   agent_id: number | null;
   status: string;
   state: TaskState;
@@ -28,8 +26,9 @@ export interface Agent {
 export interface TaskMessage {
   id: number;
   task_id: number;
+  role: "user" | "agent";
   content: string;
-  /** The task state at the time the message was added */
+  /** The task status (queue/phase) at the time the message was added, e.g. 'planning', 'development', 'done' */
   task_state_at_creation: string;
   created_at: string;
 }
