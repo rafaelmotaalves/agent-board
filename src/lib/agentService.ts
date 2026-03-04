@@ -102,9 +102,9 @@ export class AgentService {
     const existing = this.findById(id);
     if (!existing) throw new AgentNotFoundError(id);
 
-    const taskCount = (this.db
+    const { count: taskCount } = this.db
       .prepare("SELECT COUNT(*) as count FROM tasks WHERE agent_id = ?")
-      .get(id) as { count: number }).count;
+      .get(id) as { count: number };
     if (taskCount > 0) {
       throw new AgentValidationError(
         `Cannot delete agent "${existing.name}" because it has ${taskCount} assigned task(s)`

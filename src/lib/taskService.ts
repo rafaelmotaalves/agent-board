@@ -92,19 +92,13 @@ export class TaskService {
     if (status === SLUG_DONE) throw new ValidationError("Cannot create a task with done status");
 
     const description = (input.description ?? "").trim();
-    const agent_id = input.agent_id;
-    if (agent_id == null) throw new ValidationError("Agent is required");
     const result = this.db
       .prepare(
         "INSERT INTO tasks (title, description, agent_id, status, state) VALUES (?, ?, ?, ?, 'pending')"
       )
-      .run(title, description, agent_id, status);
+      .run(title, description, input.agent_id, status);
 
-    const taskId = result.lastInsertRowid as number;
-
-    return this.db
-      .prepare("SELECT * FROM tasks WHERE id = ?")
-      .get(taskId) as unknown as Task;
+    return this.findById(result.lastInsertRowid as number)!;
   }
 
   update(id: number, input: UpdateTaskInput): Task {
@@ -112,8 +106,7 @@ export class TaskService {
     if (!existing) throw new TaskNotFoundError(id);
 
     const title = input.title !== undefined ? input.title.trim() : existing.title;
-    const description =
-      input.description ? input.description.trim() : existing.description;
+    const description = input.description !== undefined ? input.description.trim() : existing.description;
     const status = input.status ? input.status : existing.status;
     const statusChanged = input.status !== undefined && input.status !== existing.status;
 

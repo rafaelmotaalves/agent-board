@@ -128,6 +128,25 @@ export class TaskWorker {
     }
   }
 
+  private async callWithStreaming(
+    task: Task,
+    status: string,
+    callAgent: (onDelta: (delta: string) => void) => Promise<string>,
+  ): Promise<void> {
+    const streamingMsg = this.service.createStreamingAgentMessage(task.id, status);
+    let accumulated = "";
+    initStreamingFile(streamingMsg.id);
+    const onDelta = (delta: string) => {
+      accumulated += delta;
+      appendStreamingChunk(streamingMsg.id, delta);
+    };
+    const response = await callAgent(onDelta);
+    await finalizeStreamingFile(streamingMsg.id);
+    log.info({ taskId: task.id, agentId: task.agent_id, status }, "Agent responded, finalizing message");
+    this.service.updateMessageContent(streamingMsg.id, (accumulated || response || "").trim(), true);
+    deleteStreamingFile(streamingMsg.id);
+  }
+
   private async processTask(task: Task, status: string): Promise<void> {
     this.addProcessing(status, task.id);
     this.service.update(task.id, { state: "in_progress" });
@@ -137,33 +156,16 @@ export class TaskWorker {
       if (task.agent_id) {
         const caller = await this.agentPool.get(task.agent_id);
         log.info({ taskId: task.id, agentId: task.agent_id, status }, "Calling agent");
-
-        const messages = 
-          this.service.listMessages(task.id).map(msg => msg.content);
-
-        // Create streaming placeholder so UI updates during generation
-        const streamingMsg = this.service.createStreamingAgentMessage(task.id, status);
-        let accumulated = "";
-        initStreamingFile(streamingMsg.id);
-
-        const onDelta = (delta: string) => {
-          logger.info({ taskId: task.id, agentId: task.agent_id, status, delta }, "Received message delta from agent");
-          accumulated += delta;
-          // Append only the new delta — no full rewrite
-          appendStreamingChunk(streamingMsg.id, delta);
-        };
-
-        const response = status === SLUG_PLANNING
-          ? await caller.planTask(task, onDelta)
-          : await caller.executeTask(task, messages, onDelta);
-
-        // Close the write stream before reading / finalizing
-        await finalizeStreamingFile(streamingMsg.id);
-        // Finalize: write the authoritative content to SQLite, then remove the temp file
-        const finalContent = (accumulated || response || "").trim();
-        log.info({ taskId: task.id, agentId: task.agent_id, status }, "Agent responded, finalizing message");
-        this.service.updateMessageContent(streamingMsg.id, finalContent, true);
-        deleteStreamingFile(streamingMsg.id);
+        const messages = this.service.listMessages(task.id).map(msg => msg.content);
+        await this.callWithStreaming(task, status, (onDelta) => {
+          const loggedDelta = (delta: string) => {
+            log.info({ taskId: task.id, agentId: task.agent_id, status, delta }, "Received message delta from agent");
+            onDelta(delta);
+          };
+          return status === SLUG_PLANNING
+            ? caller.planTask(task, loggedDelta)
+            : caller.executeTask(task, messages, loggedDelta);
+        });
       }
 
       this.service.update(task.id, { state: "done" });
@@ -188,24 +190,11 @@ export class TaskWorker {
       if (task.agent_id) {
         const caller = await this.agentPool.get(task.agent_id);
         log.info({ taskId: task.id, agentId: task.agent_id, status }, "Calling agent for message revision");
-
-        const streamingMsg = this.service.createStreamingAgentMessage(task.id, status);
-        let accumulated = "";
-        initStreamingFile(streamingMsg.id);
-
-        const onDelta = (delta: string) => {
-          accumulated += delta;
-          // Append only the new delta — no full rewrite
-          appendStreamingChunk(streamingMsg.id, delta);
-        };
-
-        const response = await caller.sendMessage(task, message?.content ?? "", onDelta);
-        await finalizeStreamingFile(streamingMsg.id);
-        const finalContent = (accumulated || response || "").trim();
-        this.service.updateMessageContent(streamingMsg.id, finalContent, true);
-        deleteStreamingFile(streamingMsg.id);
+        await this.callWithStreaming(task, status, (onDelta) =>
+          caller.sendMessage(task, message?.content ?? "", onDelta)
+        );
       }
-      
+
       this.service.update(task.id, { state: "done" });
       log.info({ taskId: task.id, status }, "Task message revision completed");
     } catch (err: unknown) {
