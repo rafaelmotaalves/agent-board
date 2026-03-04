@@ -9,6 +9,7 @@ on:
 permissions:
   contents: read
   checks: write
+  pull-requests: write
 
 jobs:
   build:
@@ -35,6 +36,8 @@ jobs:
           summary-report: true
           failed-report: true
           annotate: true
+          pull-request-report: true
+          github-report: true
           integrations-config: |
             {
               "junit-to-ctrf": {
