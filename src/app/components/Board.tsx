@@ -128,7 +128,6 @@ export default function Board() {
                       task={task}
                       queue={queue}
                       assignedAgent={agents.find((a) => a.id === task.agent_id)}
-                      onApprove={handleApprove}
                       onDelete={handleDelete}
                       onClick={setSelectedTask}
                     />
