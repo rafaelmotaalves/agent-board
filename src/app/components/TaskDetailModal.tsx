@@ -56,13 +56,29 @@ export default function TaskDetailModal({ task, agents, onClose, onApprove, onDe
             {stateLabel[task.state] ?? task.state}
           </span>
         </div>
-        <button
-          onClick={onClose}
-          className="cursor-pointer rounded p-1 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-zinc-700 dark:hover:text-zinc-200"
-          aria-label="Close modal"
-        >
-          <X className="h-4 w-4" />
-        </button>
+        <div className="flex items-center gap-2">
+          {nextQueue && task.state === "done" && (
+            <button
+              onClick={() => { onApprove(task, nextQueue); onClose(); }}
+              className="cursor-pointer rounded bg-green-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-green-700"
+            >
+              Approve
+            </button>
+          )}
+          <button
+            onClick={() => { onDelete(task); onClose(); }}
+            className="cursor-pointer rounded px-3 py-1.5 text-sm text-red-500 transition-colors hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-900/20"
+          >
+            Delete
+          </button>
+          <button
+            onClick={onClose}
+            className="cursor-pointer rounded p-1 text-zinc-400 transition-colors hover:bg-zinc-100 hover:text-zinc-600 dark:hover:bg-zinc-700 dark:hover:text-zinc-200"
+            aria-label="Close modal"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
       </div>
 
       <div className="px-5 py-4">
@@ -117,23 +133,6 @@ export default function TaskDetailModal({ task, agents, onClose, onApprove, onDe
               <ReactMarkdown>{task.execution}</ReactMarkdown>
             </div>
           </div>
-        )}
-      </div>
-
-      <div className="flex justify-end gap-2 border-t border-zinc-100 px-5 py-3 dark:border-zinc-700">
-        <button
-          onClick={() => { onDelete(task); onClose(); }}
-          className="cursor-pointer rounded px-3 py-1.5 text-sm text-red-500 transition-colors hover:bg-red-50 hover:text-red-700 dark:hover:bg-red-900/20"
-        >
-          Delete
-        </button>
-        {nextQueue && task.state === "done" && (
-          <button
-            onClick={() => { onApprove(task, nextQueue); onClose(); }}
-            className="cursor-pointer rounded bg-green-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-green-700"
-          >
-            Approve
-          </button>
         )}
       </div>
     </dialog>
