@@ -85,7 +85,7 @@ export default function Board() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="flex h-screen flex-col">
       <BoardHeader
         agents={agents}
         showAgents={showAgents}

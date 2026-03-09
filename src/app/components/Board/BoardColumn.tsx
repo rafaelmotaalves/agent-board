@@ -15,9 +15,9 @@ interface BoardColumnProps {
 export default function BoardColumn({ queue, tasks, agents, onDelete, onClick, onCreateTask }: BoardColumnProps) {
   return (
     <section
-      className="flex min-w-[20rem] flex-1 flex-col rounded-xl bg-zinc-50 p-4 dark:bg-zinc-900/50"
+      className="flex min-h-0 min-w-[20rem] flex-1 flex-col rounded-xl bg-zinc-50 p-4 dark:bg-zinc-900/50"
     >
-      <div className="mb-3 flex items-center justify-between">
+      <div className="mb-3 flex shrink-0 items-center justify-between">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-600 dark:text-zinc-400">
           {queue.label}
         </h2>
@@ -26,7 +26,7 @@ export default function BoardColumn({ queue, tasks, agents, onDelete, onClick, o
         </span>
       </div>
 
-      <div className="flex flex-1 flex-col gap-2">
+      <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto">
         {tasks.map((task) => (
           <TaskCard
             key={task.id}
@@ -40,7 +40,7 @@ export default function BoardColumn({ queue, tasks, agents, onDelete, onClick, o
       </div>
 
       {onCreateTask && (
-        <div className="mt-3">
+        <div className="mt-3 shrink-0">
           <NewTaskForm agents={agents} onSubmit={onCreateTask} />
         </div>
       )}
