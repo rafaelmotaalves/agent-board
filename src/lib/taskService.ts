@@ -1,5 +1,5 @@
 import { Database } from "bun:sqlite";
-import { Task, TaskState, isValidState, TaskMessage } from "@/lib/types";
+import { Task, TaskState, isValidState, TaskMessage, ToolCall } from "@/lib/types";
 import { isValidQueue, SLUG_DONE } from "@/lib/queues";
 import { getDb } from "./db";
 
@@ -44,15 +44,16 @@ export class TaskService {
     this.db = db ?? getDb();
   }
 
-  list(status?: string): Task[] {
+  list(status?: string, includeArchived = false): Task[] {
+    const archivedFilter = includeArchived ? "" : " AND archived_at IS NULL";
     if (status !== undefined) {
       if (!isValidQueue(status)) throw new ValidationError("Invalid status");
       return this.db
-        .prepare("SELECT * FROM tasks WHERE status = ? ORDER BY created_at ASC")
+        .prepare(`SELECT * FROM tasks WHERE status = ?${archivedFilter} ORDER BY created_at ASC`)
         .all(status) as Task[];
     }
     return this.db
-      .prepare("SELECT * FROM tasks ORDER BY created_at ASC")
+      .prepare(`SELECT * FROM tasks WHERE 1=1${archivedFilter} ORDER BY created_at ASC`)
       .all() as Task[];
   }
 
@@ -198,6 +199,40 @@ export class TaskService {
     return inProgressTasks.length;
   }
 
+  archive(id: number): Task {
+    const existing = this.findById(id);
+    if (!existing) throw new TaskNotFoundError(id);
+    if (existing.status !== SLUG_DONE) {
+      throw new ValidationError("Only tasks in the done queue can be archived");
+    }
+    if (existing.archived_at) {
+      throw new ValidationError("Task is already archived");
+    }
+    this.db
+      .prepare("UPDATE tasks SET archived_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now'), updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = ?")
+      .run(id);
+    return this.findById(id) as Task;
+  }
+
+  unarchive(id: number): Task {
+    const existing = this.findById(id);
+    if (!existing) throw new TaskNotFoundError(id);
+    if (!existing.archived_at) {
+      throw new ValidationError("Task is not archived");
+    }
+    this.db
+      .prepare("UPDATE tasks SET archived_at = NULL, updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = ?")
+      .run(id);
+    return this.findById(id) as Task;
+  }
+
+  archiveAllDone(): number {
+    const result = this.db
+      .prepare("UPDATE tasks SET archived_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now'), updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE status = ? AND archived_at IS NULL")
+      .run(SLUG_DONE);
+    return result.changes;
+  }
+
   reset(): void {
     this.db.prepare("DELETE FROM tasks").run();
   }
@@ -324,5 +359,63 @@ export class TaskService {
       .prepare("SELECT * FROM task_messages WHERE task_id = ? ORDER BY created_at DESC LIMIT 1")
       .get(taskId) as TaskMessage | null;
     return result ?? undefined;
+  }
+
+  // ── Tool Calls ──────────────────────────────────────────────────────────────
+
+  createToolCall(
+    taskId: number,
+    toolName: string,
+    input: string | null,
+    taskStatus: string,
+    toolCallId?: string,
+  ): ToolCall {
+    const task = this.findById(taskId);
+    if (!task) throw new TaskNotFoundError(taskId);
+
+    const result = this.db
+      .prepare(
+        "INSERT INTO task_tool_calls (task_id, tool_call_id, tool_name, input, task_state_at_creation) VALUES (?, ?, ?, ?, ?)"
+      )
+      .run(taskId, toolCallId ?? null, toolName, input, taskStatus);
+
+    return this.db
+      .prepare("SELECT * FROM task_tool_calls WHERE id = ?")
+      .get(result.lastInsertRowid) as unknown as ToolCall;
+  }
+
+  updateToolCall(
+    id: number,
+    updates: { output?: string; status?: "running" | "completed" | "failed"; completed_at?: string },
+  ): void {
+    const parts: string[] = [];
+    const values: unknown[] = [];
+
+    if (updates.output !== undefined) {
+      parts.push("output = ?");
+      values.push(updates.output);
+    }
+    if (updates.status !== undefined) {
+      parts.push("status = ?");
+      values.push(updates.status);
+    }
+    if (updates.completed_at !== undefined) {
+      parts.push("completed_at = ?");
+      values.push(updates.completed_at);
+    }
+
+    if (parts.length === 0) return;
+    values.push(id);
+    this.db
+      .prepare(`UPDATE task_tool_calls SET ${parts.join(", ")} WHERE id = ?`)
+      .run(...values);
+  }
+
+  listToolCalls(taskId: number): ToolCall[] {
+    const task = this.findById(taskId);
+    if (!task) throw new TaskNotFoundError(taskId);
+    return this.db
+      .prepare("SELECT * FROM task_tool_calls WHERE task_id = ? ORDER BY created_at ASC")
+      .all(taskId) as ToolCall[];
   }
 }

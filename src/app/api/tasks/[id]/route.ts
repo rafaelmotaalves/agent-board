@@ -18,6 +18,16 @@ export async function PATCH(
 
   const body = await request.json();
   try {
+    // Handle archive/unarchive actions
+    if (body.action === "archive") {
+      const task = getService().archive(taskId);
+      return NextResponse.json(task);
+    }
+    if (body.action === "unarchive") {
+      const task = getService().unarchive(taskId);
+      return NextResponse.json(task);
+    }
+
     const task = getService().update(taskId, {
       title: body.title,
       description: body.description,

@@ -1,14 +1,17 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import type { Task, Agent, AgentOptions, AgentType } from "@/lib/types";
-import { Queue, QUEUES } from "@/lib/queues";
-import { fetchTasks as apiFetchTasks, createTask, updateTaskStatus, deleteTask, fetchAgents, createAgent, deleteAgent } from "@/lib/api";
+import { Queue, QUEUES, SLUG_DONE } from "@/lib/queues";
+import { fetchTasks as apiFetchTasks, createTask, updateTaskStatus, deleteTask, fetchAgents, createAgent, deleteAgent, archiveTask, unarchiveTask, archiveAllDoneTasks } from "@/lib/api";
 import TaskDetailModal from "../TaskDetailModal";
 import AgentList from "../AgentList";
 import BoardHeader from "./BoardHeader";
 import BoardColumn from "./BoardColumn";
 import LoadingSpinner from "./LoadingSpinner";
+import { useReviewSound } from "../useReviewSound";
+
+const SOUND_STORAGE_KEY = "agentboard:sound-enabled";
 
 export default function Board() {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -16,16 +19,33 @@ export default function Board() {
   const [loading, setLoading] = useState(true);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [showAgents, setShowAgents] = useState(false);
+  const [showArchived, setShowArchived] = useState(false);
+  const [soundEnabled, setSoundEnabled] = useState(false);
+
+  useEffect(() => {
+    const stored = localStorage.getItem(SOUND_STORAGE_KEY);
+    if (stored === "true") setSoundEnabled(true);
+  }, []);
+
+  const toggleSound = useMemo(() => () => {
+    setSoundEnabled((v) => {
+      const next = !v;
+      localStorage.setItem(SOUND_STORAGE_KEY, String(next));
+      return next;
+    });
+  }, []);
+
+  useReviewSound(tasks, soundEnabled);
 
   const fetchTasks = useCallback(async () => {
     try {
-      const data = await apiFetchTasks();
+      const data = await apiFetchTasks(showArchived);
       setTasks(data);
       setSelectedTask((prev) => (prev ? (data.find((t) => t.id === prev.id) ?? prev) : null));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [showArchived]);
 
   const fetchAgentsData = useCallback(async () => {
     try {
@@ -70,8 +90,23 @@ export default function Board() {
     fetchTasks();
   }
 
-  async function handleCreateAgent(name: string, port: number, type: AgentType, options?: AgentOptions) {
-    await createAgent(name, port, type, options);
+  async function handleArchive(task: Task) {
+    await archiveTask(task.id);
+    fetchTasks();
+  }
+
+  async function handleUnarchive(task: Task) {
+    await unarchiveTask(task.id);
+    fetchTasks();
+  }
+
+  async function handleArchiveAllDone() {
+    await archiveAllDoneTasks();
+    fetchTasks();
+  }
+
+  async function handleCreateAgent(name: string, port: number | undefined, type: AgentType, command?: string, folder?: string, options?: AgentOptions) {
+    await createAgent(name, port, type, command, folder, options);
     fetchAgentsData();
   }
 
@@ -90,12 +125,19 @@ export default function Board() {
         agents={agents}
         showAgents={showAgents}
         onToggleAgents={() => setShowAgents((v) => !v)}
+        showArchived={showArchived}
+        onToggleArchived={() => setShowArchived((v) => !v)}
+        soundEnabled={soundEnabled}
+        onToggleSound={toggleSound}
       />
 
       <div className="flex flex-1 overflow-hidden">
         <main className="flex flex-1 gap-4 overflow-x-auto p-6">
           {QUEUES.map((queue) => {
             const queueTasks = tasks.filter((t) => t.status === queue.slug);
+            const archivedCount = queue.slug === SLUG_DONE && !showArchived
+              ? tasks.filter((t) => t.status === SLUG_DONE).length  // when not showing archived, we need a separate count
+              : undefined;
             return (
               <BoardColumn
                 key={queue.slug}
@@ -109,6 +151,9 @@ export default function Board() {
                   queue.slug === "development" ? handleCreateDevTask :
                   undefined
                 }
+                onArchive={queue.slug === SLUG_DONE ? handleArchive : undefined}
+                onUnarchive={queue.slug === SLUG_DONE ? handleUnarchive : undefined}
+                onArchiveAll={queue.slug === SLUG_DONE ? handleArchiveAllDone : undefined}
               />
             );
           })}

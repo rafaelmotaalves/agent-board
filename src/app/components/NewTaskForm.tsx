@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import type { Agent } from "@/lib/types";
 
 interface NewTaskFormProps {
@@ -14,6 +14,13 @@ export default function NewTaskForm({ agents, onSubmit }: NewTaskFormProps) {
   const [description, setDescription] = useState("");
   const [agentId, setAgentId] = useState<number | null>(agents.length > 0 ? agents[0].id : null);
   const [submitting, setSubmitting] = useState(false);
+
+  // Auto-select the first agent when agents load after initial mount
+  useEffect(() => {
+    if (agentId === null && agents.length > 0) {
+      setAgentId(agents[0].id);
+    }
+  }, [agents, agentId]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -67,7 +74,7 @@ export default function NewTaskForm({ agents, onSubmit }: NewTaskFormProps) {
         <option value="" disabled>Select an agent…</option>
         {agents.map((agent) => (
           <option key={agent.id} value={agent.id}>
-            {agent.name} :{agent.port}
+            {agent.name}
           </option>
         ))}
       </select>

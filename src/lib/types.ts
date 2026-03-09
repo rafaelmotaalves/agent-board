@@ -16,12 +16,14 @@ export interface Task {
   completed_at: string | null;
   active_time_ms: number;
   active_since: string | null;
+  archived_at: string | null;
   created_at: string;
   updated_at: string;
 }
 
 export const AGENT_TYPES = [
   { value: "copilot_cli_sdk", label: "Copilot CLI SDK" },
+  { value: "acp", label: "ACP Agent" },
 ] as const;
 
 export type AgentType = (typeof AGENT_TYPES)[number]["value"];
@@ -39,8 +41,10 @@ export interface AgentOptions {
 export interface Agent {
   id: number;
   name: string;
-  port: number;
+  port: number | null;
   type: AgentType;
+  command: string | null;
+  folder: string | null;
   options: AgentOptions;
   created_at: string;
 }
@@ -55,4 +59,17 @@ export interface TaskMessage {
   created_at: string;
   /** 0 = streaming in progress, 1 = complete */
   is_complete: number;
+}
+
+export interface ToolCall {
+  id: number;
+  task_id: number;
+  tool_call_id: string | null;
+  tool_name: string;
+  input: string | null;
+  output: string | null;
+  status: "running" | "completed" | "failed";
+  task_state_at_creation: string;
+  created_at: string;
+  completed_at: string | null;
 }

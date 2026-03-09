@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
-import { AgentService, AgentValidationError } from "@/lib/agentService";
+import { AgentService, AgentValidationError } from "@/lib/agents";
 
 function getService() {
   return new AgentService(getDb());
@@ -18,6 +18,8 @@ export async function POST(request: NextRequest) {
       name: body.name,
       port: body.port,
       type: body.type,
+      command: body.command,
+      folder: body.folder,
       options: body.options,
     });
     return NextResponse.json(agent, { status: 201 });

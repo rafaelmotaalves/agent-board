@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db";
-import { AgentService, AgentNotFoundError, AgentValidationError } from "@/lib/agentService";
+import { AgentService, AgentNotFoundError, AgentValidationError } from "@/lib/agents";
 
 function getService() {
   return new AgentService(getDb());
@@ -46,6 +46,8 @@ export async function PATCH(
       name: body.name,
       port: body.port,
       type: body.type,
+      command: body.command,
+      folder: body.folder,
       options: body.options,
     });
     return NextResponse.json(agent);

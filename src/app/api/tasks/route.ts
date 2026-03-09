@@ -8,8 +8,9 @@ function getService() {
 
 export async function GET(request: NextRequest) {
   const status = request.nextUrl.searchParams.get("status") ?? undefined;
+  const includeArchived = request.nextUrl.searchParams.get("includeArchived") === "true";
   try {
-    const tasks = getService().list(status);
+    const tasks = getService().list(status, includeArchived);
     return NextResponse.json(tasks);
   } catch (e) {
     if (e instanceof ValidationError) {

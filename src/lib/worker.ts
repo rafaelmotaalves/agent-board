@@ -1,6 +1,7 @@
 import { TaskService } from "@/lib/taskService";
 import { Task } from "./types";
-import { AgentPool } from "./agentPool";
+import { AgentPool } from "./agents";
+import { AgentCallbacks } from "./agents/agentCaller";
 import logger from "./logger";
 import { SLUG_DEVELOPMENT, SLUG_PLANNING } from "./queues";
 import {
@@ -131,7 +132,7 @@ export class TaskWorker {
   private async callWithStreaming(
     task: Task,
     status: string,
-    callAgent: (onDelta: (delta: string) => void) => Promise<string>,
+    callAgent: (callbacks: AgentCallbacks) => Promise<string>,
   ): Promise<void> {
     const streamingMsg = this.service.createStreamingAgentMessage(task.id, status);
     let accumulated = "";
@@ -140,11 +141,42 @@ export class TaskWorker {
       accumulated += delta;
       appendStreamingChunk(streamingMsg.id, delta);
     };
+
+    // Map tool_call_id from agents → our DB row id so updates can find their row
+    const toolCallIdMap = new Map<string, number>();
+
+    const onToolCall = (event: { toolCallId?: string; toolName: string; input?: string }) => {
+      const tc = this.service.createToolCall(task.id, event.toolName, event.input ?? null, status, event.toolCallId);
+      if (event.toolCallId) toolCallIdMap.set(event.toolCallId, tc.id);
+    };
+
+    const onToolCallUpdate = (event: { toolCallId?: string; output?: string; status: "completed" | "failed" }) => {
+      if (event.toolCallId) {
+        const dbId = toolCallIdMap.get(event.toolCallId);
+        if (dbId) {
+          this.service.updateToolCall(dbId, {
+            output: event.output,
+            status: event.status,
+            completed_at: new Date().toISOString(),
+          });
+        }
+      }
+    };
+
     try {
-      const response = await callAgent(onDelta);
+      const response = await callAgent({ onDelta, onToolCall, onToolCallUpdate });
       await finalizeStreamingFile(streamingMsg.id);
       log.info({ taskId: task.id, agentId: task.agent_id, status }, "Agent responded, finalizing message");
       this.service.updateMessageContent(streamingMsg.id, (accumulated || response || "").trim(), true);
+
+      // Mark any remaining running tool calls as completed
+      for (const dbId of toolCallIdMap.values()) {
+        const toolCalls = this.service.listToolCalls(task.id);
+        const tc = toolCalls.find(t => t.id === dbId && t.status === "running");
+        if (tc) {
+          this.service.updateToolCall(dbId, { status: "completed", completed_at: new Date().toISOString() });
+        }
+      }
     } catch (err) {
       // Clean up the orphaned streaming message so retries don't leave duplicates
       const content = accumulated.trim();
@@ -152,6 +184,15 @@ export class TaskWorker {
         this.service.updateMessageContent(streamingMsg.id, content, true);
       } else {
         this.service.deleteMessage(streamingMsg.id);
+      }
+
+      // Mark running tool calls as failed
+      for (const dbId of toolCallIdMap.values()) {
+        const toolCalls = this.service.listToolCalls(task.id);
+        const tc = toolCalls.find(t => t.id === dbId && t.status === "running");
+        if (tc) {
+          this.service.updateToolCall(dbId, { status: "failed", completed_at: new Date().toISOString() });
+        }
       }
       throw err;
     } finally {
@@ -169,14 +210,17 @@ export class TaskWorker {
         const caller = await this.agentPool.get(task.agent_id);
         log.info({ taskId: task.id, agentId: task.agent_id, status }, "Calling agent");
         const messages = this.service.listMessages(task.id).map(msg => msg.content);
-        await this.callWithStreaming(task, status, (onDelta) => {
-          const loggedDelta = (delta: string) => {
-            log.info({ taskId: task.id, agentId: task.agent_id, status, delta }, "Received message delta from agent");
-            onDelta(delta);
+        await this.callWithStreaming(task, status, (callbacks) => {
+          const wrappedCallbacks = {
+            ...callbacks,
+            onDelta: (delta: string) => {
+              log.info({ taskId: task.id, agentId: task.agent_id, status, delta }, "Received message delta from agent");
+              callbacks.onDelta?.(delta);
+            },
           };
           return status === SLUG_PLANNING
-            ? caller.planTask(task, loggedDelta)
-            : caller.executeTask(task, messages, loggedDelta);
+            ? caller.planTask(task, wrappedCallbacks)
+            : caller.executeTask(task, messages, wrappedCallbacks);
         });
       }
 
@@ -202,8 +246,8 @@ export class TaskWorker {
       if (task.agent_id) {
         const caller = await this.agentPool.get(task.agent_id);
         log.info({ taskId: task.id, agentId: task.agent_id, status }, "Calling agent for message revision");
-        await this.callWithStreaming(task, status, (onDelta) =>
-          caller.sendMessage(task, message?.content ?? "", onDelta)
+        await this.callWithStreaming(task, status, (callbacks) =>
+          caller.sendMessage(task, message?.content ?? "", callbacks)
         );
       }
 

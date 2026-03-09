@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { getDb } from "@/lib/db";
 import { TaskService, TaskNotFoundError } from "@/lib/taskService";
 import { readStreamingContent } from "@/lib/streamingStore";
-import type { TaskMessage } from "@/lib/types";
+import type { TaskMessage, ToolCall } from "@/lib/types";
 
 /**
  * Return the best available content for a message:
@@ -34,6 +34,10 @@ export async function GET(
     start(controller) {
       const service = new TaskService(getDb());
       let lastMessageId = 0;
+      let lastToolCallId = 0;
+
+      /** Track tool calls that are still running so we can detect updates. */
+      const runningToolCalls = new Map<number, ToolCall>();
 
       /**
        * Map of messageId → last content string sent to the client for each
@@ -60,7 +64,17 @@ export async function GET(
           return resolved;
         });
 
-        send({ type: "init", messages: enriched });
+        const toolCalls = service.listToolCalls(taskId);
+        lastToolCallId =
+          toolCalls.length > 0 ? Math.max(...toolCalls.map((tc) => tc.id)) : 0;
+
+        for (const tc of toolCalls) {
+          if (tc.status === "running") {
+            runningToolCalls.set(tc.id, tc);
+          }
+        }
+
+        send({ type: "init", messages: enriched, toolCalls });
       } catch (e) {
         if (e instanceof TaskNotFoundError) {
           controller.close();
@@ -114,6 +128,28 @@ export async function GET(
                 type: "message_updated",
                 message: { ...current, content: latestContent },
               });
+            }
+          }
+
+          // 3. Detect NEW tool calls (by id)
+          const allToolCalls = service.listToolCalls(taskId);
+          const newToolCalls = allToolCalls.filter((tc) => tc.id > lastToolCallId);
+          if (newToolCalls.length > 0) {
+            lastToolCallId = Math.max(...newToolCalls.map((tc) => tc.id));
+            for (const tc of newToolCalls) {
+              if (tc.status === "running") runningToolCalls.set(tc.id, tc);
+            }
+            send({ type: "new_tool_calls", toolCalls: newToolCalls });
+          }
+
+          // 4. Detect UPDATED running tool calls (status change)
+          const toolCallById = new Map(allToolCalls.map((tc) => [tc.id, tc]));
+          for (const [tcId, prev] of runningToolCalls) {
+            const current = toolCallById.get(tcId);
+            if (!current) continue;
+            if (current.status !== prev.status || current.output !== prev.output) {
+              runningToolCalls.delete(tcId);
+              send({ type: "tool_call_updated", toolCall: current });
             }
           }
         } catch {

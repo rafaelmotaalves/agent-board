@@ -11,6 +11,7 @@ interface AgentCardProps {
 
 export default function AgentCard({ agent, onDelete }: AgentCardProps) {
   const typeLabel = AGENT_TYPES.find((t) => t.value === agent.type)?.label ?? agent.type;
+  const connectionInfo = agent.type === "acp" ? agent.command : `:${agent.port}`;
 
   return (
     <div className="flex items-center justify-between rounded-lg border border-zinc-200 bg-white px-3 py-2 shadow-sm dark:border-zinc-700 dark:bg-zinc-800">
@@ -19,7 +20,7 @@ export default function AgentCard({ agent, onDelete }: AgentCardProps) {
           {agent.name}
         </p>
         <p className="text-xs text-zinc-500 dark:text-zinc-400">
-          :{agent.port}
+          <span className="truncate" title={connectionInfo ?? undefined}>{connectionInfo}</span>
           <span className="ml-2 inline-flex items-center rounded-full bg-emerald-100 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
             {typeLabel}
           </span>
@@ -29,6 +30,11 @@ export default function AgentCard({ agent, onDelete }: AgentCardProps) {
             </span>
           )}
         </p>
+        {agent.folder && (
+          <p className="truncate text-[10px] text-zinc-400 dark:text-zinc-500" title={agent.folder}>
+            📁 {agent.folder}
+          </p>
+        )}
       </div>
       <button
         onClick={() => onDelete(agent)}

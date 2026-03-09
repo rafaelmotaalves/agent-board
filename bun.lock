@@ -5,6 +5,7 @@
     "": {
       "name": "ai-board",
       "dependencies": {
+        "@agentclientprotocol/sdk": "^0.15.0",
         "@github/copilot-sdk": "^0.1.30",
         "@tailwindcss/typography": "^0.5.19",
         "lucide-react": "^0.576.0",
@@ -36,6 +37,8 @@
   },
   "packages": {
     "@adobe/css-tools": ["@adobe/css-tools@4.4.4", "", {}, "sha512-Elp+iwUx5rN5+Y8xLt5/GRoG20WGoDCQ/1Fb+1LiGtvwbDavuSk0jhD/eZdckHAuzcDzccnkv+rEjyWfRx18gg=="],
+
+    "@agentclientprotocol/sdk": ["@agentclientprotocol/sdk@0.15.0", "", { "peerDependencies": { "zod": "^3.25.0 || ^4.0.0" } }, "sha512-TH4utu23Ix8ec34srBHmDD4p3HI0cYleS1jN9lghRczPfhFlMBNrQgZWeBBe12DWy27L11eIrtciY2MXFSEiDg=="],
 
     "@alloc/quick-lru": ["@alloc/quick-lru@5.2.0", "", {}, "sha512-UrcABB+4bUrFABwbluTIBErXwvbsU/V7TZWfmbgJfbkwiBuziS9gxdODUyuiecfdGQ85jglMW6juS3+z5TsKLw=="],
 

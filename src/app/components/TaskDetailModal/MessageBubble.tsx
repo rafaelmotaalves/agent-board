@@ -1,6 +1,5 @@
 "use client";
 
-import { useRef } from "react";
 import type { TaskMessage } from "@/lib/types";
 import { formatDateTime } from "@/lib/formatDate";
 import { Bot, User, PenLine } from "lucide-react";
@@ -10,35 +9,17 @@ interface MessageBubbleProps {
   message: TaskMessage;
 }
 
-/** Renders streaming text word-by-word with a fade-in animation for new tokens. */
+/** Renders streaming markdown with a blinking cursor at the end. */
 function StreamingContent({ content }: { content: string }) {
-  const seenLengthRef = useRef(0);
-  const prevSeen = seenLengthRef.current;
-  const seenText = content.slice(0, prevSeen);
-  const newText = content.slice(prevSeen);
-  seenLengthRef.current = content.length;
-
-  // Split new text on whitespace boundaries, keeping the separators
-  const newTokens = newText ? newText.split(/(\s+)/) : [];
-
   return (
-    <p className="whitespace-pre-wrap text-sm leading-relaxed">
-      {seenText}
-      {newTokens.map((token, i) => (
-        <span
-          key={`${prevSeen}-${i}`}
-          className="animate-word-in"
-          style={{ animationDelay: `${i * 25}ms` }}
-        >
-          {token}
-        </span>
-      ))}
+    <div className="prose prose-sm max-w-none dark:prose-invert prose-headings:text-zinc-800 prose-p:text-zinc-600 prose-code:rounded prose-code:bg-zinc-100 prose-code:px-1 prose-code:text-zinc-800 dark:prose-headings:text-zinc-100 dark:prose-p:text-zinc-300 dark:prose-code:bg-zinc-700 dark:prose-code:text-zinc-200">
+      <ReactMarkdown>{content}</ReactMarkdown>
       {/* Blinking cursor */}
       <span
         className="inline-block w-0.5 h-[1em] ml-px bg-blue-500 align-text-bottom animate-cursor-blink"
         aria-hidden="true"
       />
-    </p>
+    </div>
   );
 }
 

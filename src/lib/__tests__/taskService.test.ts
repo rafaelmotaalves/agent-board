@@ -18,6 +18,7 @@ function createDb(): Database {
       completed_at TEXT DEFAULT NULL,
       active_time_ms INTEGER NOT NULL DEFAULT 0,
       active_since TEXT DEFAULT NULL,
+      archived_at TEXT DEFAULT NULL,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     )

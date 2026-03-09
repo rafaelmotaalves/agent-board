@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from "bun:test";
 import { Database } from "bun:sqlite";
-import { AgentService, AgentValidationError, AgentNotFoundError } from "@/lib/agentService";
+import { AgentService, AgentValidationError, AgentNotFoundError } from "@/lib/agents";
 
 function createDb(): Database {
   const db = new Database(":memory:");
@@ -11,6 +11,8 @@ function createDb(): Database {
       name TEXT NOT NULL,
       port INTEGER NOT NULL UNIQUE,
       type TEXT NOT NULL DEFAULT 'copilot_cli_sdk',
+      command TEXT DEFAULT NULL,
+      folder TEXT DEFAULT NULL,
       options TEXT NOT NULL DEFAULT '{}',
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     )
@@ -27,6 +29,7 @@ function createDb(): Database {
       completed_at TEXT DEFAULT NULL,
       active_time_ms INTEGER NOT NULL DEFAULT 0,
       active_since TEXT DEFAULT NULL,
+      archived_at TEXT DEFAULT NULL,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     )
