@@ -134,15 +134,32 @@ export class TaskService {
       ? new Date().toISOString()
       : (status !== SLUG_DONE ? null : existing.completed_at);
 
+    // ── Active-time stopwatch logic ──────────────────────────────────────────
+    const now = new Date().toISOString();
+    let active_time_ms = existing.active_time_ms;
+    let active_since: string | null = existing.active_since;
+
+    const enteringActive = state === "in_progress" && existing.state !== "in_progress";
+    const leavingActive = state !== "in_progress" && existing.state === "in_progress";
+
+    if (enteringActive) {
+      // Start the stopwatch
+      active_since = now;
+    } else if (leavingActive && existing.active_since) {
+      // Stop the stopwatch and accumulate elapsed time
+      active_time_ms += Math.max(0, new Date(now).getTime() - new Date(existing.active_since).getTime());
+      active_since = null;
+    }
+
     if (!title) throw new ValidationError("Title is required");
     if (!isValidQueue(status)) throw new ValidationError("Invalid status");
     if (!isValidState(state)) throw new ValidationError("Invalid state");
 
     this.db
       .prepare(
-        "UPDATE tasks SET title = ?, description = ?, status = ?, state = ?, failure_reason = ?, completed_at = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = ?"
+        "UPDATE tasks SET title = ?, description = ?, status = ?, state = ?, failure_reason = ?, completed_at = ?, active_time_ms = ?, active_since = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = ?"
       )
-      .run(title, description, status, state, failure_reason, completed_at, id);
+      .run(title, description, status, state, failure_reason, completed_at, active_time_ms, active_since, id);
 
     return this.findById(id) as Task;
   }
@@ -155,15 +172,30 @@ export class TaskService {
 
   /**
    * Marks all in_progress tasks as failed on startup so they don't stay stuck
-   * after a crash/restart. Returns the number of recovered tasks.
+   * after a crash/restart. Accumulates active time before stopping the timer.
+   * Returns the number of recovered tasks.
    */
   recoverInProgressTasks(): number {
-    const result = this.db
-      .prepare(
-        "UPDATE tasks SET state = 'failed', failure_reason = 'Worker restarted while task was in progress', updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE state = 'in_progress'"
-      )
-      .run();
-    return result.changes;
+    const inProgressTasks = this.db
+      .prepare("SELECT * FROM tasks WHERE state = 'in_progress'")
+      .all() as Task[];
+
+    if (inProgressTasks.length === 0) return 0;
+
+    const now = new Date();
+    const stmt = this.db.prepare(
+      "UPDATE tasks SET state = 'failed', failure_reason = 'Worker restarted while task was in progress', active_time_ms = ?, active_since = NULL, updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = ?"
+    );
+
+    for (const task of inProgressTasks) {
+      let accumulated = task.active_time_ms;
+      if (task.active_since) {
+        accumulated += Math.max(0, now.getTime() - new Date(task.active_since).getTime());
+      }
+      stmt.run(accumulated, task.id);
+    }
+
+    return inProgressTasks.length;
   }
 
   reset(): void {

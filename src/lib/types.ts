@@ -14,6 +14,8 @@ export interface Task {
   state: TaskState;
   failure_reason: string | null;
   completed_at: string | null;
+  active_time_ms: number;
+  active_since: string | null;
   created_at: string;
   updated_at: string;
 }
