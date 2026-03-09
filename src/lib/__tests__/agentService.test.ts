@@ -10,6 +10,7 @@ function createDb(): Database {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL,
       port INTEGER NOT NULL UNIQUE,
+      type TEXT NOT NULL DEFAULT 'copilot_cli_sdk',
       options TEXT NOT NULL DEFAULT '{}',
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     )
@@ -180,6 +181,51 @@ describe("AgentService", () => {
       });
       const agents = service.list();
       expect(agents[0].options.parallel_planning).toBe(true);
+    });
+  });
+
+  // ── type ──────────────────────────────────────────────────────────────────
+
+  describe("type", () => {
+    it("creates an agent with default type copilot_cli_sdk", () => {
+      const agent = service.create({ name: "default-type", port: 7500 });
+      expect(agent.type).toBe("copilot_cli_sdk");
+    });
+
+    it("creates an agent with explicit type", () => {
+      const agent = service.create({ name: "explicit-type", port: 7501, type: "copilot_cli_sdk" });
+      expect(agent.type).toBe("copilot_cli_sdk");
+    });
+
+    it("throws AgentValidationError for invalid type", () => {
+      expect(() =>
+        service.create({ name: "bad-type", port: 7502, type: "nonexistent" as never })
+      ).toThrow(AgentValidationError);
+    });
+
+    it("persists type through findById", () => {
+      const agent = service.create({ name: "persist-type", port: 7503 });
+      const found = service.findById(agent.id)!;
+      expect(found.type).toBe("copilot_cli_sdk");
+    });
+
+    it("persists type through list", () => {
+      service.create({ name: "list-type", port: 7504 });
+      const agents = service.list();
+      expect(agents[0].type).toBe("copilot_cli_sdk");
+    });
+
+    it("preserves type when not provided in update", () => {
+      const agent = service.create({ name: "keep-type", port: 7505 });
+      const updated = service.update(agent.id, { name: "renamed" });
+      expect(updated.type).toBe("copilot_cli_sdk");
+    });
+
+    it("throws AgentValidationError when updating with invalid type", () => {
+      const agent = service.create({ name: "upd-type", port: 7506 });
+      expect(() =>
+        service.update(agent.id, { type: "invalid" as never })
+      ).toThrow(AgentValidationError);
     });
   });
 

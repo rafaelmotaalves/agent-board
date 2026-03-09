@@ -1,6 +1,7 @@
 "use client";
 
 import type { Agent } from "@/lib/types";
+import { AGENT_TYPES } from "@/lib/types";
 import { TrashIcon } from "lucide-react";
 
 interface AgentCardProps {
@@ -9,6 +10,8 @@ interface AgentCardProps {
 }
 
 export default function AgentCard({ agent, onDelete }: AgentCardProps) {
+  const typeLabel = AGENT_TYPES.find((t) => t.value === agent.type)?.label ?? agent.type;
+
   return (
     <div className="flex items-center justify-between rounded-lg border border-zinc-200 bg-white px-3 py-2 shadow-sm dark:border-zinc-700 dark:bg-zinc-800">
       <div className="min-w-0">
@@ -17,6 +20,9 @@ export default function AgentCard({ agent, onDelete }: AgentCardProps) {
         </p>
         <p className="text-xs text-zinc-500 dark:text-zinc-400">
           :{agent.port}
+          <span className="ml-2 inline-flex items-center rounded-full bg-emerald-100 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
+            {typeLabel}
+          </span>
           {agent.options?.parallel_planning && (
             <span className="ml-2 inline-flex items-center rounded-full bg-blue-100 px-1.5 py-0.5 text-[10px] font-medium text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
               parallel

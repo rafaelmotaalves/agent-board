@@ -237,10 +237,14 @@ export class TaskService {
   /**
    * Creates a streaming agent message placeholder (is_complete=0).
    * The worker will update the content as deltas arrive.
+   * Any stale incomplete agent messages for the same task are cleaned up first.
    */
   createStreamingAgentMessage(taskId: number, taskStatus: string): TaskMessage {
     const task = this.findById(taskId);
     if (!task) throw new TaskNotFoundError(taskId);
+
+    // Safety net: remove orphaned incomplete messages from a previous failed attempt
+    this.deleteIncompleteMessages(taskId);
 
     const result = this.db
       .prepare(
@@ -284,6 +288,25 @@ export class TaskService {
     return this.db
       .prepare("SELECT * FROM task_messages WHERE id = ?")
       .get(result.lastInsertRowid) as unknown as TaskMessage;
+  }
+
+  /**
+   * Deletes a single message by ID.
+   */
+  deleteMessage(messageId: number): void {
+    this.db
+      .prepare("DELETE FROM task_messages WHERE id = ?")
+      .run(messageId);
+  }
+
+  /**
+   * Deletes all incomplete (is_complete=0) agent messages for a task.
+   * Used to clean up orphaned streaming placeholders after a failed attempt.
+   */
+  deleteIncompleteMessages(taskId: number): void {
+    this.db
+      .prepare("DELETE FROM task_messages WHERE task_id = ? AND is_complete = 0")
+      .run(taskId);
   }
 
   listMessages(taskId: number): TaskMessage[] {

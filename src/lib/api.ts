@@ -1,4 +1,4 @@
-import type { Task, Agent, AgentOptions, TaskMessage } from "@/lib/types";
+import type { Task, Agent, AgentOptions, AgentType, TaskMessage } from "@/lib/types";
 
 export async function fetchTasks(): Promise<Task[]> {
   const res = await fetch("/api/tasks");
@@ -56,12 +56,13 @@ export async function fetchAgents(): Promise<Agent[]> {
 export async function createAgent(
   name: string,
   port: number,
+  type?: AgentType,
   options?: AgentOptions
 ): Promise<Agent> {
   const res = await fetch("/api/agents", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name, port, options }),
+    body: JSON.stringify({ name, port, type, options }),
   });
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
@@ -72,7 +73,7 @@ export async function createAgent(
 
 export async function updateAgent(
   id: number,
-  updates: { name?: string; port?: number; options?: AgentOptions }
+  updates: { name?: string; port?: number; type?: AgentType; options?: AgentOptions }
 ): Promise<Agent> {
   const res = await fetch(`/api/agents/${id}`, {
     method: "PATCH",

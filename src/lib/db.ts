@@ -1,8 +1,8 @@
 import { Database } from "bun:sqlite";
 import path from 'node:path';
 import type { Task, TaskState, Agent, AgentOptions, TaskMessage } from "@/lib/types";
-export type { Task, TaskState, Agent, AgentOptions, TaskMessage };
-export { isValidState } from "@/lib/types";
+export type { Task, TaskState, Agent, AgentOptions, AgentType, TaskMessage };
+export { isValidState, isValidAgentType, AGENT_TYPES, DEFAULT_AGENT_TYPE } from "@/lib/types";
 
 const DB_PATH = path.join(process.cwd(), "agent-board.db");
 
@@ -55,6 +55,7 @@ export function getDb(): Database {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL,
         port INTEGER NOT NULL UNIQUE,
+        type TEXT NOT NULL DEFAULT 'copilot_cli_sdk',
         options TEXT NOT NULL DEFAULT '{}',
         created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
       )
@@ -66,6 +67,9 @@ export function getDb(): Database {
     );
     if (!agentCols.includes("options")) {
       _db.exec("ALTER TABLE agents ADD COLUMN options TEXT NOT NULL DEFAULT '{}'");
+    }
+    if (!agentCols.includes("type")) {
+      _db.exec("ALTER TABLE agents ADD COLUMN type TEXT NOT NULL DEFAULT 'copilot_cli_sdk'");
     }
 
     _db.exec(`

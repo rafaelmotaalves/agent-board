@@ -1,8 +1,8 @@
 "use client";
 
 import type { Task, Agent } from "@/lib/types";
-import { Queue, getNextQueue } from "@/lib/queues";
-import { Loader2, TrashIcon, AlertCircle, Clock } from "lucide-react";
+import { Queue, getNextQueue, isReadyForReview } from "@/lib/queues";
+import { Loader2, TrashIcon, AlertCircle, Clock, CheckCircle2 } from "lucide-react";
 import { useActiveTime, formatActiveTime } from "./useActiveTime";
 
 interface TaskCardProps {
@@ -15,6 +15,7 @@ interface TaskCardProps {
 
 export default function TaskCard({ task, queue, assignedAgent, onDelete, onClick }: TaskCardProps) {
   const nextQueue = getNextQueue(queue.slug);
+  const readyForReview = isReadyForReview(task.state, queue.slug);
   const activeMs = useActiveTime(task.active_time_ms, task.active_since);
   const isActive = task.active_since !== null;
   const displayTime = activeMs > 0 || isActive ? formatActiveTime(activeMs) : null;
@@ -24,7 +25,9 @@ export default function TaskCard({ task, queue, assignedAgent, onDelete, onClick
       className={`cursor-pointer rounded-lg border bg-white p-3 shadow-sm transition-shadow hover:shadow-md dark:bg-zinc-800 ${
         task.state === "failed"
           ? "border-red-400 border-l-4 dark:border-red-500"
-          : "border-zinc-200 dark:border-zinc-700"
+          : readyForReview
+            ? "border-emerald-400 border-l-4 dark:border-emerald-500"
+            : "border-zinc-200 dark:border-zinc-700"
       }`}
       onClick={() => onClick(task)}
       role="button"
@@ -72,6 +75,12 @@ export default function TaskCard({ task, queue, assignedAgent, onDelete, onClick
             <span className="flex items-center gap-1 text-xs text-red-500 dark:text-red-400" title={task.failure_reason ?? "Task failed"}>
               <AlertCircle className="h-3.5 w-3.5" aria-hidden="true" />
               <span>Failed</span>
+            </span>
+          )}
+          {readyForReview && (
+            <span className="flex items-center gap-1 rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
+              <CheckCircle2 className="h-3 w-3" aria-hidden="true" />
+              Ready for review
             </span>
           )}
           <button

@@ -1,17 +1,19 @@
 "use client";
 
 import { useState } from "react";
-import type { AgentOptions } from "@/lib/types";
+import type { AgentOptions, AgentType } from "@/lib/types";
+import { AGENT_TYPES, DEFAULT_AGENT_TYPE } from "@/lib/types";
 import ToggleSwitch from "@/app/components/ToggleSwitch";
 
 interface NewAgentFormProps {
-  onSubmit: (name: string, port: number, options?: AgentOptions) => Promise<void>;
+  onSubmit: (name: string, port: number, type: AgentType, options?: AgentOptions) => Promise<void>;
 }
 
 export default function NewAgentForm({ onSubmit }: NewAgentFormProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [name, setName] = useState("");
   const [port, setPort] = useState("");
+  const [type, setType] = useState<AgentType>(DEFAULT_AGENT_TYPE);
   const [parallelPlanning, setParallelPlanning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -34,9 +36,10 @@ export default function NewAgentForm({ onSubmit }: NewAgentFormProps) {
     try {
       const options: AgentOptions = {};
       if (parallelPlanning) options.parallel_planning = true;
-      await onSubmit(name.trim(), portNum, options);
+      await onSubmit(name.trim(), portNum, type, options);
       setName("");
       setPort("");
+      setType(DEFAULT_AGENT_TYPE);
       setParallelPlanning(false);
       setIsOpen(false);
     } catch (err) {
@@ -50,6 +53,7 @@ export default function NewAgentForm({ onSubmit }: NewAgentFormProps) {
     setIsOpen(false);
     setName("");
     setPort("");
+    setType(DEFAULT_AGENT_TYPE);
     setParallelPlanning(false);
     setError(null);
   }
@@ -87,6 +91,17 @@ export default function NewAgentForm({ onSubmit }: NewAgentFormProps) {
         max={65535}
         className="mt-2 w-full rounded border border-zinc-200 px-3 py-2 text-sm outline-none focus:border-blue-500 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100"
       />
+      <select
+        value={type}
+        onChange={(e) => setType(e.target.value as AgentType)}
+        className="mt-2 w-full rounded border border-zinc-200 px-3 py-2 text-sm outline-none focus:border-blue-500 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100"
+      >
+        {AGENT_TYPES.map((t) => (
+          <option key={t.value} value={t.value}>
+            {t.label}
+          </option>
+        ))}
+      </select>
       <label className="mt-2 flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-300">
         <ToggleSwitch
           checked={parallelPlanning}

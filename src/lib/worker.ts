@@ -140,11 +140,23 @@ export class TaskWorker {
       accumulated += delta;
       appendStreamingChunk(streamingMsg.id, delta);
     };
-    const response = await callAgent(onDelta);
-    await finalizeStreamingFile(streamingMsg.id);
-    log.info({ taskId: task.id, agentId: task.agent_id, status }, "Agent responded, finalizing message");
-    this.service.updateMessageContent(streamingMsg.id, (accumulated || response || "").trim(), true);
-    deleteStreamingFile(streamingMsg.id);
+    try {
+      const response = await callAgent(onDelta);
+      await finalizeStreamingFile(streamingMsg.id);
+      log.info({ taskId: task.id, agentId: task.agent_id, status }, "Agent responded, finalizing message");
+      this.service.updateMessageContent(streamingMsg.id, (accumulated || response || "").trim(), true);
+    } catch (err) {
+      // Clean up the orphaned streaming message so retries don't leave duplicates
+      const content = accumulated.trim();
+      if (content) {
+        this.service.updateMessageContent(streamingMsg.id, content, true);
+      } else {
+        this.service.deleteMessage(streamingMsg.id);
+      }
+      throw err;
+    } finally {
+      deleteStreamingFile(streamingMsg.id);
+    }
   }
 
   private async processTask(task: Task, status: string): Promise<void> {

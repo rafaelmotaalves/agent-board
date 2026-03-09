@@ -2,7 +2,8 @@
 
 import type { Task, Agent } from "@/lib/types";
 import type { Queue } from "@/lib/queues";
-import TimeSinceUpdate from "./TimeSinceUpdate";
+import { formatDateTime } from "@/lib/formatDate";
+
 import { useActiveTime, formatActiveTime } from "../useActiveTime";
 import { Clock } from "lucide-react";
 
@@ -29,14 +30,9 @@ export default function TaskMetadata({ task, queue, agents }: TaskMetadataProps)
         </div>
         <div>
           <dt className="font-medium uppercase tracking-wide">Created</dt>
-          <dd className="mt-0.5 text-zinc-700 dark:text-zinc-200">{new Date(task.created_at).toISOString()}</dd>
+          <dd className="mt-0.5 text-zinc-700 dark:text-zinc-200">{formatDateTime(task.created_at)}</dd>
         </div>
-        <div>
-          <dt className="font-medium uppercase tracking-wide">Updated</dt>
-          <dd className="mt-0.5 text-zinc-700 dark:text-zinc-200">
-            <TimeSinceUpdate updatedAt={task.updated_at} />
-          </dd>
-        </div>
+
         <div>
           <dt className="font-medium uppercase tracking-wide">Assigned Agent</dt>
           <dd className="mt-0.5 text-zinc-700 dark:text-zinc-200">
@@ -54,7 +50,7 @@ export default function TaskMetadata({ task, queue, agents }: TaskMetadataProps)
         {task.completed_at && (
           <div>
             <dt className="font-medium uppercase tracking-wide">Completed</dt>
-            <dd className="mt-0.5 text-zinc-700 dark:text-zinc-200">{new Date(task.completed_at).toISOString()}</dd>
+            <dd className="mt-0.5 text-zinc-700 dark:text-zinc-200">{formatDateTime(task.completed_at)}</dd>
           </div>
         )}
       </dl>

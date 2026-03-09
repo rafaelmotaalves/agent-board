@@ -17,6 +17,7 @@ export async function POST(request: NextRequest) {
     const agent = getService().create({
       name: body.name,
       port: body.port,
+      type: body.type,
       options: body.options,
     });
     return NextResponse.json(agent, { status: 201 });

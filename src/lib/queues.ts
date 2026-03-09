@@ -23,3 +23,8 @@ export function getNextQueue(currentSlug: string): Queue | null {
 export function isValidQueue(slug: string): boolean {
   return QUEUES.some((q) => q.slug === slug);
 }
+
+/** A task is ready for review when the agent finished (state "done") but it hasn't reached the final queue yet. */
+export function isReadyForReview(state: string, queueSlug: string): boolean {
+  return state === "done" && queueSlug !== SLUG_DONE;
+}
