@@ -29,7 +29,7 @@ export class AcpCaller implements IAgentCaller {
     /** Maps SessionId → session state (type + active callbacks) */
     private sessions: Map<SessionId, SessionState> = new Map();
 
-    constructor(private readonly command: string, private readonly folder?: string) {}
+    constructor(private readonly command: string, private readonly folder: string) {}
 
     private createClient(): (agent: Agent) => Client {
         return () => ({
@@ -92,6 +92,7 @@ export class AcpCaller implements IAgentCaller {
                         toolCallId: update.toolCallId as string | undefined,
                         toolName: title,
                         input: inputStr ?? undefined,
+                        kind: update.kind as string,
                     });
                     logger.info({ sessionId: params.sessionId, toolCall: params.update }, "Tool call");
                 }
@@ -100,9 +101,10 @@ export class AcpCaller implements IAgentCaller {
                     const rawOutput = update.rawOutput as Record<string, unknown> | undefined;
                     const outputStr = rawOutput ? rawOutput.content as string : null;
                     toolUpdateCallback?.({
-                        toolCallId: update.toolCallId as string | undefined,
+                        toolCallId: update.toolCallId as string,
                         output: outputStr ?? undefined,
                         status: "completed",
+                        kind: update.kind as string,
                     });
                     logger.info({ sessionId: params.sessionId, toolCallUpdate: params.update }, "Tool call update");
                 }
@@ -118,6 +120,8 @@ export class AcpCaller implements IAgentCaller {
         logger.info({ command: this.command }, "Spawning ACP agent subprocess");
 
         const cmdParts = this.command.split(/\s+/);
+        
+        logger.info({ cmdParts }, "Command parts for ACP subprocess");
 
         this.process = spawn({
             cwd: this.folder,

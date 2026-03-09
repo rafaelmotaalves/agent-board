@@ -26,6 +26,7 @@ export default function TaskDetailModal({ task, agents, onClose, onApprove, onDe
   const dialogRef = useRef<HTMLDialogElement>(null);
   const queue = QUEUES.find((q) => q.slug === task.status);
   const nextQueue = queue ? getNextQueue(queue.slug) : null;
+  const agent = agents.find((a) => a.id === task.agent_id);
 
   const [messages, setMessages] = useState<TaskMessage[]>([]);
   const [toolCalls, setToolCalls] = useState<ToolCall[]>([]);
@@ -114,6 +115,7 @@ export default function TaskDetailModal({ task, agents, onClose, onApprove, onDe
       <ModalHeader
         task={task}
         nextQueue={nextQueue}
+        workingDir={agent?.folder}
         onApprove={onApprove}
         onDelete={onDelete}
         onRetry={handleRetry}

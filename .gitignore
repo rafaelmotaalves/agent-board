@@ -41,16 +41,13 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# sqlite database
-*.db
-*.db-shm
-*.db-wal
+# sqlite database (stored in ~/.agent-board/)
+.agent-board/
 
 # test artifacts
 /playwright-report/
 /test-results/
 test-output.txt
-tmp/
 
 # swc cache
 .swc/

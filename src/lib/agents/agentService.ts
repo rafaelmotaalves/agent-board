@@ -8,7 +8,7 @@ export interface CreateAgentInput {
   port?: number;
   type?: AgentType;
   command?: string;
-  folder?: string;
+  folder: string;
   options?: AgentOptions;
 }
 
@@ -17,7 +17,7 @@ export interface UpdateAgentInput {
   port?: number;
   type?: AgentType;
   command?: string;
-  folder?: string | null;
+  folder?: string;
   options?: AgentOptions;
 }
 
@@ -47,7 +47,7 @@ export class AgentService {
     return {
       ...agent,
       command: agent.command ?? null,
-      folder: agent.folder ?? null,
+      folder: agent.folder ?? "",
       options: typeof agent.options === "string" ? JSON.parse(agent.options) : agent.options ?? {},
     };
   }
@@ -90,7 +90,8 @@ export class AgentService {
       port = p;
     }
 
-    const folder = input.folder?.trim() || null;
+    const folder = input.folder?.trim();
+    if (!folder) throw new AgentValidationError("Working directory is required");
     const options = JSON.stringify(input.options ?? {});
 
     const result = this.db
@@ -104,36 +105,31 @@ export class AgentService {
     const existing = this.findById(id);
     if (!existing) throw new AgentNotFoundError(id);
 
-    const name = input.name !== undefined ? input.name.trim() : existing.name;
-    if (!name) throw new AgentValidationError("Name is required");
-
-    const type = input.type !== undefined ? input.type : existing.type;
-    if (!isValidAgentType(type)) {
-      throw new AgentValidationError(`Invalid agent type: ${type}`);
+    if (input.type !== undefined && !isValidAgentType(input.type)) {
+      throw new AgentValidationError(`Invalid agent type: ${input.type}`);
     }
 
-    let port: number;
-    let command: string | null;
+    if (input.name !== undefined) {
+      const trimmed = input.name.trim();
+      if (!trimmed) throw new AgentValidationError("Name is required");
+      input = { ...input, name: trimmed };
+    }
 
-    if (type === "acp") {
-      command = input.command !== undefined ? (input.command?.trim() || null) : existing.command;
-      if (!command) throw new AgentValidationError("Command is required for ACP agents");
-      port = existing.port;
-    } else {
-      port = input.port !== undefined ? input.port : existing.port;
-      if (!Number.isInteger(port) || port < 1 || port > 65535) {
+    if (input.port !== undefined) {
+      if (!Number.isInteger(input.port) || input.port < 1 || input.port > 65535) {
         throw new AgentValidationError("Port must be an integer between 1 and 65535");
       }
-      command = existing.command;
     }
 
-    const folder = input.folder !== undefined
-      ? (input.folder?.trim() || null)
-      : existing.folder;
-
-    const options = input.options !== undefined
-      ? JSON.stringify(input.options)
-      : JSON.stringify(existing.options);
+    const name = input.name ?? existing.name;
+    const port = input.port ?? existing.port;
+    const type = input.type ?? existing.type;
+    const command = input.command !== undefined ? (input.command?.trim() || null) : existing.command;
+    const folder = input.folder !== undefined ? (input.folder?.trim() || undefined) : existing.folder;
+    if (!folder) throw new AgentValidationError("Working directory is required");
+    const options = JSON.stringify(
+      input.options !== undefined ? { ...existing.options, ...input.options } : existing.options
+    );
 
     this.db
       .prepare("UPDATE agents SET name = ?, port = ?, type = ?, command = ?, folder = ?, options = ? WHERE id = ?")

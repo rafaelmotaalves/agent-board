@@ -1,6 +1,6 @@
 import type { Task } from "@/lib/types";
 import type { Queue } from "@/lib/queues";
-import { Loader2, X, RotateCcw } from "lucide-react";
+import { Loader2, X, RotateCcw, Code } from "lucide-react";
 
 const stateLabel: Record<string, string> = {
   pending: "Pending",
@@ -21,13 +21,14 @@ const stateBadge: Record<string, string> = {
 interface ModalHeaderProps {
   task: Task;
   nextQueue: Queue | null;
+  workingDir?: string;
   onApprove: (task: Task, nextQueue: Queue) => void;
   onDelete: (task: Task) => void;
   onRetry: (task: Task) => void;
   onClose: () => void;
 }
 
-export default function ModalHeader({ task, nextQueue, onApprove, onDelete, onRetry, onClose }: ModalHeaderProps) {
+export default function ModalHeader({ task, nextQueue, workingDir, onApprove, onDelete, onRetry, onClose }: ModalHeaderProps) {
   return (
     <div className="flex-shrink-0 flex items-start justify-between border-b border-zinc-100 px-5 py-4 dark:border-zinc-700">
       <div className="flex items-center gap-2">
@@ -40,6 +41,16 @@ export default function ModalHeader({ task, nextQueue, onApprove, onDelete, onRe
         </span>
       </div>
       <div className="flex items-center gap-2">
+        {workingDir && (
+          <button
+            onClick={() => { window.open(`vscode://file/${workingDir}`); }}
+            className="cursor-pointer rounded bg-blue-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-blue-700 flex items-center gap-1"
+            title="Open working directory in VS Code"
+          >
+            <Code className="h-3.5 w-3.5" aria-hidden="true" />
+            Open on Code
+          </button>
+        )}
         {task.state === "failed" && (
           <button
             onClick={() => { onRetry(task); }}

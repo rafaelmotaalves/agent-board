@@ -145,12 +145,12 @@ export class TaskWorker {
     // Map tool_call_id from agents → our DB row id so updates can find their row
     const toolCallIdMap = new Map<string, number>();
 
-    const onToolCall = (event: { toolCallId?: string; toolName: string; input?: string }) => {
-      const tc = this.service.createToolCall(task.id, event.toolName, event.input ?? null, status, event.toolCallId);
+    const onToolCall = (event: { toolCallId?: string; toolName: string; input?: string; kind?: string }) => {
+      const tc = this.service.createToolCall(task.id, event.toolName, event.input ?? null, status, event.toolCallId, event.kind);
       if (event.toolCallId) toolCallIdMap.set(event.toolCallId, tc.id);
     };
 
-    const onToolCallUpdate = (event: { toolCallId?: string; output?: string; status: "completed" | "failed" }) => {
+    const onToolCallUpdate = (event: { toolCallId?: string; output?: string; status: "completed" | "failed"; kind?: string }) => {
       if (event.toolCallId) {
         const dbId = toolCallIdMap.get(event.toolCallId);
         if (dbId) {
@@ -158,6 +158,7 @@ export class TaskWorker {
             output: event.output,
             status: event.status,
             completed_at: new Date().toISOString(),
+            kind: event.kind,
           });
         }
       }

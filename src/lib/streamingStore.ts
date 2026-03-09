@@ -2,7 +2,7 @@
  * Disk-based streaming message store.
  *
  * While an agent message is being generated, its content is written to a
- * temporary markdown file at `tmp/messages/<messageId>.md`.  This avoids
+ * temporary markdown file at `~/.agent-board/tmp/messages/<messageId>.md`.  This avoids
  * high-frequency SQLite writes during streaming and lets the SSE route read
  * content changes directly from the filesystem at low latency.
  *
@@ -16,14 +16,13 @@
 
 import path from "node:path";
 import fs from "node:fs";
-
-const STREAMING_DIR = path.join(process.cwd(), "tmp", "messages");
+import { STREAMING_DIR, ensureDataDir } from "@/lib/paths";
 
 /** Open write streams keyed by messageId. */
 const openStreams = new Map<number, fs.WriteStream>();
 
 function ensureDir(): void {
-  fs.mkdirSync(STREAMING_DIR, { recursive: true });
+  ensureDataDir();
 }
 
 /** Absolute path to the temp file for a given message ID. */

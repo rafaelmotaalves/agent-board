@@ -9,9 +9,9 @@ import AgentList from "../AgentList";
 import BoardHeader from "./BoardHeader";
 import BoardColumn from "./BoardColumn";
 import LoadingSpinner from "./LoadingSpinner";
-import { useReviewSound } from "../useReviewSound";
+import { useReviewNotification } from "../useReviewNotification";
 
-const SOUND_STORAGE_KEY = "agentboard:sound-enabled";
+const NOTIFICATIONS_STORAGE_KEY = "agentboard:notifications-enabled";
 
 export default function Board() {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -20,22 +20,35 @@ export default function Board() {
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [showAgents, setShowAgents] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
-  const [soundEnabled, setSoundEnabled] = useState(false);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(false);
 
   useEffect(() => {
-    const stored = localStorage.getItem(SOUND_STORAGE_KEY);
-    if (stored === "true") setSoundEnabled(true);
+    const stored = localStorage.getItem(NOTIFICATIONS_STORAGE_KEY);
+    if (stored === "true" && typeof Notification !== "undefined" && Notification.permission === "granted") {
+      setNotificationsEnabled(true);
+    }
   }, []);
 
-  const toggleSound = useMemo(() => () => {
-    setSoundEnabled((v) => {
-      const next = !v;
-      localStorage.setItem(SOUND_STORAGE_KEY, String(next));
-      return next;
-    });
-  }, []);
+  const toggleNotifications = useMemo(() => async () => {
+    if (typeof Notification === "undefined") return;
 
-  useReviewSound(tasks, soundEnabled);
+    if (!notificationsEnabled) {
+      // Enabling: request permission if needed
+      if (Notification.permission === "default") {
+        const result = await Notification.requestPermission();
+        if (result !== "granted") return;
+      } else if (Notification.permission === "denied") {
+        return;
+      }
+      setNotificationsEnabled(true);
+      localStorage.setItem(NOTIFICATIONS_STORAGE_KEY, "true");
+    } else {
+      setNotificationsEnabled(false);
+      localStorage.setItem(NOTIFICATIONS_STORAGE_KEY, "false");
+    }
+  }, [notificationsEnabled]);
+
+  useReviewNotification(tasks, notificationsEnabled);
 
   const fetchTasks = useCallback(async () => {
     try {
@@ -127,8 +140,8 @@ export default function Board() {
         onToggleAgents={() => setShowAgents((v) => !v)}
         showArchived={showArchived}
         onToggleArchived={() => setShowArchived((v) => !v)}
-        soundEnabled={soundEnabled}
-        onToggleSound={toggleSound}
+        notificationsEnabled={notificationsEnabled}
+        onToggleNotifications={toggleNotifications}
       />
 
       <div className="flex flex-1 overflow-hidden">

@@ -6,12 +6,14 @@ export interface ToolCallEvent {
     toolCallId?: string;
     toolName: string;
     input?: string;
+    kind?: string;
 }
 
 export interface ToolCallUpdateEvent {
     toolCallId?: string;
     output?: string;
     status: "completed" | "failed";
+    kind?: string;
 }
 
 export type OnToolCall = (event: ToolCallEvent) => void;
