@@ -1,6 +1,9 @@
 {
-  "name": "agent-board",
+  "name": "@rafaelmotaalves/agent-board",
   "version": "0.1.0",
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
+  },
   "bin": {
     "agent-board": "./bin/agent-board.mjs"
   },
