@@ -164,8 +164,12 @@ export class TaskWorker {
       }
     };
 
+    const onUsage = (event: { tokenLimit: number; usedTokens: number }) => {
+      this.service.upsertUsage(task.id, status, event.tokenLimit, event.usedTokens);
+    };
+
     try {
-      const response = await callAgent({ onDelta, onToolCall, onToolCallUpdate });
+      const response = await callAgent({ onDelta, onToolCall, onToolCallUpdate, onUsage });
       await finalizeStreamingFile(streamingMsg.id);
       log.info({ taskId: task.id, agentId: task.agent_id, status }, "Agent responded, finalizing message");
       this.service.updateMessageContent(streamingMsg.id, (accumulated || response || "").trim(), true);

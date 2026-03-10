@@ -1,4 +1,4 @@
-import type { Task, Agent, AgentOptions, AgentType, TaskMessage, ToolCall } from "@/lib/types";
+import type { Task, Agent, AgentOptions, AgentType, TaskMessage, ToolCall, TaskUsage } from "@/lib/types";
 
 export async function fetchTasks(includeArchived = false): Promise<Task[]> {
   const params = includeArchived ? "?includeArchived=true" : "";
@@ -146,5 +146,11 @@ export async function addTaskMessage(taskId: number, content: string): Promise<T
 export async function fetchToolCalls(taskId: number): Promise<ToolCall[]> {
   const res = await fetch(`/api/tasks/${taskId}/tool-calls`);
   if (!res.ok) throw new Error("Failed to fetch tool calls");
+  return res.json();
+}
+
+export async function fetchUsage(taskId: number): Promise<TaskUsage[]> {
+  const res = await fetch(`/api/tasks/${taskId}/usage`);
+  if (!res.ok) throw new Error("Failed to fetch usage");
   return res.json();
 }

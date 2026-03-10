@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { Task, Agent, TaskMessage, ToolCall } from "@/lib/types";
+import type { Task, Agent, TaskMessage, ToolCall, TaskUsage } from "@/lib/types";
 import { Queue, getNextQueue, QUEUES } from "@/lib/queues";
 import { addTaskMessage, retryTask } from "@/lib/api";
 import ModalHeader from "./ModalHeader";
@@ -10,6 +10,7 @@ import Conversation from "./Conversation";
 import CommentForm from "./CommentForm";
 import ActiveToolBar from "./ActiveToolBar";
 import ToolCallsList from "./ToolCallsList";
+import UsageTable from "./UsageTable";
 
 interface TaskDetailModalProps {
   task: Task;
@@ -20,7 +21,7 @@ interface TaskDetailModalProps {
   onTaskUpdated?: () => void;
 }
 
-type TabId = "conversation" | "tool-calls";
+type TabId = "conversation" | "tool-calls" | "usage";
 
 export default function TaskDetailModal({ task, agents, onClose, onApprove, onDelete, onTaskUpdated }: TaskDetailModalProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
@@ -30,6 +31,7 @@ export default function TaskDetailModal({ task, agents, onClose, onApprove, onDe
 
   const [messages, setMessages] = useState<TaskMessage[]>([]);
   const [toolCalls, setToolCalls] = useState<ToolCall[]>([]);
+  const [usage, setUsage] = useState<TaskUsage[]>([]);
   const [activeTab, setActiveTab] = useState<TabId>("conversation");
   const [newComment, setNewComment] = useState("");
   const [submittingComment, setSubmittingComment] = useState(false);
@@ -43,19 +45,22 @@ export default function TaskDetailModal({ task, agents, onClose, onApprove, onDe
   useEffect(() => {
     setMessages([]);
     setToolCalls([]);
+    setUsage([]);
     const es = new EventSource(`/api/tasks/${task.id}/stream`);
 
     es.onmessage = (event) => {
       const data = JSON.parse(event.data) as
-        | { type: "init"; messages: TaskMessage[]; toolCalls: ToolCall[] }
+        | { type: "init"; messages: TaskMessage[]; toolCalls: ToolCall[]; usage: TaskUsage[] }
         | { type: "new_messages"; messages: TaskMessage[] }
         | { type: "message_updated"; message: TaskMessage }
         | { type: "new_tool_calls"; toolCalls: ToolCall[] }
-        | { type: "tool_call_updated"; toolCall: ToolCall };
+        | { type: "tool_call_updated"; toolCall: ToolCall }
+        | { type: "usage_updated"; usage: TaskUsage };
 
       if (data.type === "init") {
         setMessages(data.messages);
         setToolCalls(data.toolCalls ?? []);
+        setUsage(data.usage ?? []);
       } else if (data.type === "new_messages") {
         setMessages((prev) => [...prev, ...data.messages]);
       } else if (data.type === "message_updated") {
@@ -68,6 +73,16 @@ export default function TaskDetailModal({ task, agents, onClose, onApprove, onDe
         setToolCalls((prev) =>
           prev.map((tc) => (tc.id === data.toolCall.id ? data.toolCall : tc))
         );
+      } else if (data.type === "usage_updated") {
+        setUsage((prev) => {
+          const idx = prev.findIndex((u) => u.id === data.usage.id);
+          if (idx >= 0) {
+            const next = [...prev];
+            next[idx] = data.usage;
+            return next;
+          }
+          return [...prev, data.usage];
+        });
       }
     };
 
@@ -156,12 +171,29 @@ export default function TaskDetailModal({ task, agents, onClose, onApprove, onDe
             </span>
           )}
         </button>
+        <button
+          onClick={() => setActiveTab("usage")}
+          className={`cursor-pointer flex items-center gap-1.5 px-3 py-2 text-xs font-medium transition-colors ${
+            activeTab === "usage"
+              ? "border-b-2 border-blue-500 text-blue-600 dark:text-blue-400"
+              : "text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-300"
+          }`}
+        >
+          Usage
+          {usage.length > 0 && (
+            <span className="rounded-full bg-zinc-200 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300">
+              {usage.length}
+            </span>
+          )}
+        </button>
       </div>
 
       {activeTab === "conversation" ? (
         <Conversation messages={messages} task={task} />
-      ) : (
+      ) : activeTab === "tool-calls" ? (
         <ToolCallsList toolCalls={toolCalls} />
+      ) : (
+        <UsageTable usage={usage} />
       )}
 
       {activeTab === "conversation" && (

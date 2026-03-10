@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { getDb } from "@/lib/db";
 import { TaskService, TaskNotFoundError } from "@/lib/taskService";
 import { readStreamingContent } from "@/lib/streamingStore";
-import type { TaskMessage, ToolCall } from "@/lib/types";
+import type { TaskMessage, ToolCall, TaskUsage } from "@/lib/types";
 
 /**
  * Return the best available content for a message:
@@ -35,6 +35,9 @@ export async function GET(
       const service = new TaskService(getDb());
       let lastMessageId = 0;
       let lastToolCallId = 0;
+
+      /** Track usage rows so we can detect changes. */
+      const usageByStatus = new Map<string, TaskUsage>();
 
       /** Track tool calls that are still running so we can detect updates. */
       const runningToolCalls = new Map<number, ToolCall>();
@@ -74,7 +77,12 @@ export async function GET(
           }
         }
 
-        send({ type: "init", messages: enriched, toolCalls });
+        const usage = service.listUsage(taskId);
+        for (const u of usage) {
+          usageByStatus.set(u.status, u);
+        }
+
+        send({ type: "init", messages: enriched, toolCalls, usage });
       } catch (e) {
         if (e instanceof TaskNotFoundError) {
           controller.close();
@@ -150,6 +158,16 @@ export async function GET(
             if (current.status !== prev.status || current.output !== prev.output) {
               runningToolCalls.delete(tcId);
               send({ type: "tool_call_updated", toolCall: current });
+            }
+          }
+
+          // 5. Detect usage changes
+          const currentUsage = service.listUsage(taskId);
+          for (const u of currentUsage) {
+            const prev = usageByStatus.get(u.status);
+            if (!prev || prev.used_tokens !== u.used_tokens || prev.token_limit !== u.token_limit) {
+              usageByStatus.set(u.status, u);
+              send({ type: "usage_updated", usage: u });
             }
           }
         } catch {

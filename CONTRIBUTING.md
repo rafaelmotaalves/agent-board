@@ -41,6 +41,15 @@ bun run test:watch   # Unit tests in watch mode
 bunx jest path/to/file  # Run a single test file
 ```
 
+**Coverage reports**
+
+```bash
+bun run test:coverage          # Terminal coverage summary
+bun run test:coverage:report   # Generate LCOV report in ./coverage/
+```
+
+The terminal report shows per-file line coverage inline. The LCOV reporter writes `coverage/lcov.info` which can be consumed by CI tools (Codecov, Coveralls, GitHub Actions) or converted to HTML with `genhtml coverage/lcov.info -o coverage/html` (requires `lcov` installed).
+
 Always run unit tests after making changes and ensure they all pass before finishing. Do **not** run E2E tests (`bun run test:e2e`) unless explicitly asked.
 
 **E2E tests (Playwright, Chromium only)**
