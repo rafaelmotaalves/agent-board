@@ -57,13 +57,6 @@ Click **Agents** in the board header to open the agent panel, then fill in the f
 
 Pass `--config` when starting the board to pre-register agents from a JSON file (see [Getting Started](#getting-started)).
 
-On startup the worker syncs agents into the database:
-
-- **New agents** (matched by name) are created
-- **Changed agents** are updated
-- **Unchanged agents** are skipped
-- **Agents absent from the config** are left untouched (additive-only — no deletions)
-
 #### Config schema
 
 ```json
@@ -115,27 +108,6 @@ To use the `acp` method, you can just add:
       "folder": "/path/to/project"
     }
 ```
-
-## Task Workflow
-
-```mermaid
-flowchart LR
-    New([New task created])
-
-    New -->|start in Planning\ndefault| PlanningQ
-    New -->|start in Development| DevQ
-
-    PlanningQ["Planning\n(queued)"]
-    PlanningQ -->|agent works| PlanningReview["Ready for review"]
-    PlanningReview -->|you approve| DevQ
-
-    DevQ["Development\n(queued)"]
-    DevQ -->|agent works| DevReview["Ready for review"]
-    DevReview -->|you approve| Done([Done])
-```
-
----
-
 
 ## Contributing
 
