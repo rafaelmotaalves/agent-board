@@ -146,7 +146,7 @@ export class CopilotCaller implements IAgentCaller {
             logger.info({ sessionId: event.id, usage: event.data }, "Usage info from Copilot session");
             callbacks?.onUsage?.({
                 tokenLimit: event.data?.tokenLimit ?? 0,
-                usedTokens: event.data?.usedTokens ?? 0,
+                currentTokens: event.data?.currentTokens ?? 0,
             });
         });
 
@@ -183,7 +183,7 @@ export class CopilotCaller implements IAgentCaller {
             logger.info({ sessionId: event.id, usage: event.data }, "Usage info from Copilot session");
             callbacks?.onUsage?.({
                 tokenLimit: event.data?.tokenLimit ?? 0,
-                usedTokens: event.data?.usedTokens ?? 0,
+                currentTokens: event.data?.currentTokens ?? 0,
             });
         });
 
@@ -212,7 +212,7 @@ export class CopilotCaller implements IAgentCaller {
             logger.info({ sessionId: event.id, usage: event.data }, "Usage info from Copilot session");
             callbacks?.onUsage?.({
                 tokenLimit: event.data?.tokenLimit ?? 0,
-                usedTokens: event.data?.usedTokens ?? 0,
+                currentTokens: event.data?.currentTokens ?? 0,
             });
         });
 

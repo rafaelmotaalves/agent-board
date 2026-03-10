@@ -4,4 +4,3 @@ bun = true
 [test]
 preload = ["./src/test-setup.ts"]
 root = "./src"
-coverageThreshold = 0

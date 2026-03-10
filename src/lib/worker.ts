@@ -1,7 +1,7 @@
 import { TaskService } from "@/lib/taskService";
 import { Task } from "./types";
 import { AgentPool } from "./agents";
-import { AgentCallbacks } from "./agents/agentCaller";
+import { AgentCallbacks, UsageEvent } from "./agents/agentCaller";
 import logger from "./logger";
 import { SLUG_DEVELOPMENT, SLUG_PLANNING } from "./queues";
 import {
@@ -164,8 +164,8 @@ export class TaskWorker {
       }
     };
 
-    const onUsage = (event: { tokenLimit: number; usedTokens: number }) => {
-      this.service.upsertUsage(task.id, status, event.tokenLimit, event.usedTokens);
+    const onUsage = (event: UsageEvent) => {
+      this.service.upsertUsage(task.id, status, event.tokenLimit, event.currentTokens);
     };
 
     try {

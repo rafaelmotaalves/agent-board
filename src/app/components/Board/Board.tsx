@@ -6,6 +6,7 @@ import { Queue, QUEUES, SLUG_DONE } from "@/lib/queues";
 import { fetchTasks as apiFetchTasks, createTask, updateTaskStatus, deleteTask, fetchAgents, createAgent, deleteAgent, archiveTask, unarchiveTask, archiveAllDoneTasks } from "@/lib/api";
 import TaskDetailModal from "../TaskDetailModal";
 import AgentList from "../AgentList";
+import ConfirmDeleteAgentModal from "../AgentList/ConfirmDeleteAgentModal";
 import BoardHeader from "./BoardHeader";
 import BoardColumn from "./BoardColumn";
 import LoadingSpinner from "./LoadingSpinner";
@@ -21,6 +22,9 @@ export default function Board() {
   const [showAgents, setShowAgents] = useState(false);
   const [showArchived, setShowArchived] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(false);
+  const [agentToDelete, setAgentToDelete] = useState<Agent | null>(null);
+  const [deletingAgent, setDeletingAgent] = useState(false);
+  const [deleteAgentError, setDeleteAgentError] = useState<string | null>(null);
 
   useEffect(() => {
     const stored = localStorage.getItem(NOTIFICATIONS_STORAGE_KEY);
@@ -123,12 +127,24 @@ export default function Board() {
     fetchAgentsData();
   }
 
-  async function handleDeleteAgent(agent: Agent) {
+  function handleDeleteAgent(agent: Agent) {
+    setAgentToDelete(agent);
+    setDeleteAgentError(null);
+    setDeletingAgent(false);
+  }
+
+  async function confirmDeleteAgent() {
+    if (!agentToDelete) return;
+    setDeletingAgent(true);
+    setDeleteAgentError(null);
     try {
-      await deleteAgent(agent.id);
+      await deleteAgent(agentToDelete.id);
+      setAgentToDelete(null);
       fetchAgentsData();
     } catch (e) {
-      alert(e instanceof Error ? e.message : "Failed to delete agent");
+      setDeleteAgentError(e instanceof Error ? e.message : "Failed to delete agent");
+    } finally {
+      setDeletingAgent(false);
     }
   }
 
@@ -189,6 +205,16 @@ export default function Board() {
           onApprove={handleApprove}
           onDelete={handleDelete}
           onTaskUpdated={fetchTasks}
+        />
+      )}
+
+      {agentToDelete && (
+        <ConfirmDeleteAgentModal
+          agent={agentToDelete}
+          deleting={deletingAgent}
+          error={deleteAgentError}
+          onConfirm={confirmDeleteAgent}
+          onCancel={() => setAgentToDelete(null)}
         />
       )}
     </div>
