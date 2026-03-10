@@ -5,12 +5,9 @@ import { AgentCallbacks, UsageEvent } from "./agents/agentCaller";
 import logger from "./logger";
 import { SLUG_DEVELOPMENT, SLUG_PLANNING } from "./queues";
 import {
-  initStreamingFile,
-  appendStreamingChunk,
-  finalizeStreamingFile,
-  deleteStreamingFile,
-  cleanupAllStreamingFiles,
+  defaultStreamingStore,
 } from "./streamingStore";
+import type { StreamingStore } from "./streamingStore";
 
 const log = logger.child({ module: "TaskWorker" });
 
@@ -21,18 +18,21 @@ export class TaskWorker {
   private intervalId: ReturnType<typeof setInterval> | null = null;
   private readonly processing = new Map<string, Set<number>>(); // status → set of taskIds
   private readonly agentPool: AgentPool;
+  private readonly streaming: StreamingStore;
 
   constructor(
     private readonly service: TaskService,
     agentPool: AgentPool,
+    streaming: StreamingStore = defaultStreamingStore,
   ) {
     this.agentPool = agentPool;
+    this.streaming = streaming;
   }
 
   start(): void {
     if (this.intervalId) return;
     // Clean up any leftover streaming files from a previous crash
-    cleanupAllStreamingFiles();
+    this.streaming.cleanupAllStreamingFiles();
     this.intervalId = setInterval(() => this.tick(), POOL_INTERVAL_MS);
     log.info({ pollIntervalMs: POOL_INTERVAL_MS }, "Worker started");
   }
@@ -136,10 +136,10 @@ export class TaskWorker {
   ): Promise<void> {
     const streamingMsg = this.service.createStreamingAgentMessage(task.id, status);
     let accumulated = "";
-    initStreamingFile(streamingMsg.id);
+    this.streaming.initStreamingFile(streamingMsg.id);
     const onDelta = (delta: string) => {
       accumulated += delta;
-      appendStreamingChunk(streamingMsg.id, delta);
+      this.streaming.appendStreamingChunk(streamingMsg.id, delta);
     };
 
     // Map tool_call_id from agents → our DB row id so updates can find their row
@@ -170,7 +170,7 @@ export class TaskWorker {
 
     try {
       const response = await callAgent({ onDelta, onToolCall, onToolCallUpdate, onUsage });
-      await finalizeStreamingFile(streamingMsg.id);
+      await this.streaming.finalizeStreamingFile(streamingMsg.id);
       log.info({ taskId: task.id, agentId: task.agent_id, status }, "Agent responded, finalizing message");
       this.service.updateMessageContent(streamingMsg.id, (accumulated || response || "").trim(), true);
 
@@ -201,7 +201,7 @@ export class TaskWorker {
       }
       throw err;
     } finally {
-      deleteStreamingFile(streamingMsg.id);
+      this.streaming.deleteStreamingFile(streamingMsg.id);
     }
   }
 
