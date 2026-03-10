@@ -1,8 +1,8 @@
-import { describe, it, expect, beforeEach, mock } from "bun:test";
+import { describe, it, expect, beforeEach } from "@jest/globals";
 import { AgentPool } from "@/lib/agents/agentPool";
 import { AgentService } from "@/lib/agents/agentService";
 import type { Agent } from "@/lib/types";
-import { Database } from "bun:sqlite";
+import Database from "better-sqlite3";
 
 function createDb(): Database {
   const db = new Database(":memory:");

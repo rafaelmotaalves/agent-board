@@ -1,4 +1,5 @@
-import { Database, SQLQueryBindings } from "bun:sqlite";
+import Database from "better-sqlite3";
+type SQLQueryBindings = null | undefined | boolean | number | bigint | string | Buffer;
 import { Task, TaskState, isValidState, TaskMessage, ToolCall, TaskUsage } from "@/lib/types";
 import { isValidQueue, SLUG_DONE } from "@/lib/queues";
 import { getDb } from "./db";
@@ -99,7 +100,7 @@ export class TaskService {
       )
       .run(title, description, input.agent_id, status);
 
-    return this.findById(result.lastInsertRowid as number)!;
+    return this.findById(Number(result.lastInsertRowid))!;
   }
 
   update(id: number, input: UpdateTaskInput): Task {
@@ -266,7 +267,7 @@ export class TaskService {
 
     return this.db
       .prepare("SELECT * FROM task_messages WHERE id = ?")
-      .get(result.lastInsertRowid) as unknown as TaskMessage;
+      .get(Number(result.lastInsertRowid)) as unknown as TaskMessage;
   }
 
   /**
@@ -289,7 +290,7 @@ export class TaskService {
 
     return this.db
       .prepare("SELECT * FROM task_messages WHERE id = ?")
-      .get(result.lastInsertRowid) as unknown as TaskMessage;
+      .get(Number(result.lastInsertRowid)) as unknown as TaskMessage;
   }
 
   /**
@@ -322,7 +323,7 @@ export class TaskService {
 
     return this.db
       .prepare("SELECT * FROM task_messages WHERE id = ?")
-      .get(result.lastInsertRowid) as unknown as TaskMessage;
+      .get(Number(result.lastInsertRowid)) as unknown as TaskMessage;
   }
 
   /**
@@ -382,7 +383,7 @@ export class TaskService {
 
     return this.db
       .prepare("SELECT * FROM task_tool_calls WHERE id = ?")
-      .get(result.lastInsertRowid) as unknown as ToolCall;
+      .get(Number(result.lastInsertRowid)) as unknown as ToolCall;
   }
 
   updateToolCall(

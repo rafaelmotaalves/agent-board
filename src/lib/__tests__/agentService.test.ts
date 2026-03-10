@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach } from "bun:test";
-import { Database } from "bun:sqlite";
+import { describe, it, expect, beforeEach } from "@jest/globals";
+import Database from "better-sqlite3";
 import { AgentService, AgentValidationError, AgentNotFoundError } from "@/lib/agents";
 
 function createDb(): Database {

@@ -1,4 +1,4 @@
-import { describe, it, expect } from "bun:test";
+import { describe, it, expect } from "@jest/globals";
 import { formatDateTime } from "@/lib/formatDate";
 
 describe("formatDateTime", () => {

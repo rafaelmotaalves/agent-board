@@ -12,20 +12,32 @@ bun install
 
 ## Development Workflow
 
-### 1. Create a Worktree from the Current Branch
+We use automated scripts to create isolated worktrees for every change. This keeps the main checkout clean and makes it easy to work on multiple tasks in parallel.
 
-Use a Git worktree to isolate work without switching branches in the main directory.
+### 1. Start a Session (Create a Worktree)
 
-```bash
-BRANCH=$(git rev-parse --abbrev-ref HEAD)
-FEATURE_BRANCH="<your-feature-branch-name>"
-WORKTREE_PATH="../ai-board-$FEATURE_BRANCH"
+```powershell
+# Auto-generate a session branch name (e.g. session/2026-03-10-a3f1)
+.\bin\new-session.ps1
 
-git worktree add -b "$FEATURE_BRANCH" "$WORKTREE_PATH" "$BRANCH"
-cd "$WORKTREE_PATH"
+# Or provide a descriptive name
+.\bin\new-session.ps1 -Name "feat/task-filtering"
 ```
 
-> Replace `<your-feature-branch-name>` with a descriptive name, e.g. `feat/my-feature` or `fix/bug-description`.
+The script will:
+- Create a new branch based on the current branch
+- Set up a worktree at `../ai-board-<branch-name>`
+- Run `bun install` in the worktree
+
+Then move into the worktree:
+
+```powershell
+cd "<printed-worktree-path>"
+```
+
+| Flag | Description |
+|------|-------------|
+| `-Name <string>` | Feature branch name. Auto-generated if omitted. |
 
 ### 2. Make Your Changes
 
@@ -60,14 +72,30 @@ bun run test:e2e:ui     # Playwright UI mode
 bunx playwright test e2e/home.spec.ts  # Run a single E2E file
 ```
 
-### 4. Commit Changes
+### 4. Finish the Session (Commit, Push & PR)
 
-```bash
-git add .
-git commit -m "feat: <short description of what changed>"
+```powershell
+.\bin\finish-session.ps1 -Message "feat: add task filtering by status"
 ```
 
-Commit message conventions:
+The script will:
+- Stage all changes
+- Commit with the provided message
+- Push the branch to origin
+- Create a pull request via `gh pr create`
+
+| Flag | Description |
+|------|-------------|
+| `-Message <string>` | **Required.** Commit message (use conventional commit format). |
+| `-Cleanup` | Remove the worktree after PR creation. |
+
+**Example with cleanup:**
+
+```powershell
+.\bin\finish-session.ps1 -Message "fix: resolve null ref on empty board" -Cleanup
+```
+
+### Commit Message Conventions
 
 | Prefix | When to use |
 |--------|-------------|
@@ -77,19 +105,6 @@ Commit message conventions:
 | `refactor:` | Code restructuring without behaviour change |
 | `docs:` | Documentation updates |
 | `test:` | Adding or updating tests |
-
-### 5. Push and Open a Pull Request
-
-```bash
-git push -u origin "$FEATURE_BRANCH"
-
-gh pr create \
-  --base main \
-  --head "$FEATURE_BRANCH" \
-  --title "<PR title>" \
-  --body "<PR description>" \
-  --web
-```
 
 ## Architecture
 

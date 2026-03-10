@@ -1,4 +1,4 @@
-import { Database } from "bun:sqlite";
+import Database from "better-sqlite3";
 import type { Agent, AgentOptions, AgentType } from "../types";
 import { isValidAgentType, DEFAULT_AGENT_TYPE } from "../types";
 import { getDb } from "../db";
@@ -98,7 +98,7 @@ export class AgentService {
       .prepare("INSERT INTO agents (name, port, type, command, folder, options) VALUES (?, ?, ?, ?, ?, ?)")
       .run(name, port, type, command, folder, options);
 
-    return this.findById(result.lastInsertRowid as number)!;
+    return this.findById(Number(result.lastInsertRowid))!;
   }
 
   update(id: number, input: UpdateAgentInput): Agent {

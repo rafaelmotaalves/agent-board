@@ -32,71 +32,62 @@ Always run the unit tests (`bun test`) after making code changes and ensure they
 
 ## Development Workflow
 
-Always follow these steps when starting new a session:
+Every session **must** use the automated worktree scripts. This keeps each task isolated on its own branch.
 
-### 1. Create a Worktree from the Current Branch
+### 1. Start a Session
 
-Use a Git worktree to isolate work without switching branches in the main directory.
+```powershell
+# Auto-generate a session branch name
+.\bin\new-session.ps1
 
-```bash
-# Get the current branch name
-BRANCH=$(git rev-parse --abbrev-ref HEAD)
-
-# Define the feature branch and worktree path
-FEATURE_BRANCH="<your-feature-branch-name>"
-WORKTREE_PATH="../ai-board-$FEATURE_BRANCH"
-
-# Create a new branch and worktree based on the current branch
-git worktree add -b "$FEATURE_BRANCH" "$WORKTREE_PATH" "$BRANCH"
-
-# Navigate into the worktree
-cd "$WORKTREE_PATH"
+# Or provide a descriptive name
+.\bin\new-session.ps1 -Name "feat/task-filtering"
 ```
 
-> Replace `<your-feature-branch-name>` with a descriptive name, e.g. `feat/my-feature` or `fix/bug-description`.
+The script creates a new branch + worktree at `../ai-board-<branch>`, runs `bun install`, and prints the path. **Move into the worktree before doing any work:**
+
+```powershell
+cd "<printed-worktree-path>"
+```
 
 ### 2. Make Your Changes
 
 Implement your changes inside the worktree directory.
 
-### 3. Commit Changes
+### 3. Finish the Session
 
-Stage and commit your work with a clear, conventional commit message:
+When done, commit, push, and open a PR in one step:
 
-```bash
-# Stage all changes (or specific files)
-git add .
-
-# Commit with a descriptive message
-git commit -m "feat: <short description of what changed>"
+```powershell
+.\bin\finish-session.ps1 -Message "feat: add task filtering by status"
 ```
 
-Commit message conventions:
-- `feat:` — new feature
-- `fix:` — bug fix
-- `chore:` — tooling, dependencies, or non-functional changes
-- `refactor:` — code restructuring without behaviour change
-- `docs:` — documentation updates
-- `test:` — adding or updating tests
+Add `-Cleanup` to remove the worktree after the PR is created:
 
-### 4. Push the Branch
-
-```bash
-git push -u origin "$FEATURE_BRANCH"
+```powershell
+.\bin\finish-session.ps1 -Message "fix: resolve null ref" -Cleanup
 ```
 
-### 5. Create a Pull Request with the gh CLI
+### 4. Submit for Review
 
-```bash
-gh pr create \
-  --base main \
-  --head "$FEATURE_BRANCH" \
-  --title "<PR title>" \
-  --body "<PR description>"
-  --web
+The script prints the PR URL. Return it to the user:
+
+```markdown
+Please review the changes in this PR: [PR Title](<PR-link>)
 ```
 
-#### Useful gh pr flags
+### Commit Message Conventions
+
+| Prefix | When to use |
+|--------|-------------|
+| `feat:` | New feature |
+| `fix:` | Bug fix |
+| `chore:` | Tooling, deps, or non-functional changes |
+| `refactor:` | Code restructuring without behaviour change |
+| `docs:` | Documentation updates |
+| `test:` | Adding or updating tests |
+
+### Useful `gh pr` Flags
 
 | Flag | Description |
 |------|-------------|
@@ -104,25 +95,6 @@ gh pr create \
 | `--reviewer <handle>` | Request a specific reviewer |
 | `--label <label>` | Attach a label to the PR |
 | `--web` | Open the newly created PR in the browser |
-
-#### Example
-
-```bash
-gh pr create \
-  --base main \
-  --head feat/task-filtering \
-  --title "feat: add task filtering by status" \
-  --body "Adds a status filter to the Board view. Closes #42." \
-  --draft
-```
-
-### 6. Submit for Review
-
-Once the PR is created, include the PR link and return to the user for review. Example:
-
-```markdown
-Please review the changes in this PR: [PR Title](<PR-link>)
-```
 
 ## Conventions
 

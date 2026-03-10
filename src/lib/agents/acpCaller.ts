@@ -1,6 +1,8 @@
 import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { dirname } from "node:path";
-import { spawn, type Subprocess, FileSink } from "bun";
+import { spawn } from "node:child_process";
+import type { ChildProcess } from "node:child_process";
+import { Writable, Readable } from "node:stream";
 import { ClientSideConnection, ndJsonStream, PROTOCOL_VERSION } from "@agentclientprotocol/sdk";
 import type { Agent, Client, RequestPermissionRequest, SessionId } from "@agentclientprotocol/sdk";
 import { DeltaCallback, AgentCallbacks, IAgentCaller, OnToolCall, OnToolCallUpdate } from "./agentCaller";
@@ -22,7 +24,7 @@ interface SessionState {
  * and communicates over stdio using the Agent Client Protocol.
  */
 export class AcpCaller implements IAgentCaller {
-    private process: Subprocess | null = null;
+    private process: ChildProcess | null = null;
     private connection: ClientSideConnection | null = null;
     private initialized = false;
     /** Maps taskId → { planning?: SessionId, execution?: SessionId } */
@@ -104,32 +106,23 @@ export class AcpCaller implements IAgentCaller {
         
         logger.info({ cmdParts }, "Command parts for ACP subprocess");
 
-        this.process = spawn({
+        this.process = spawn(cmdParts[0], cmdParts.slice(1), {
             cwd: this.folder,
-            cmd: cmdParts,
-            stdin: "pipe",
-            stdout: "pipe",
-            stderr: "pipe",
+            stdio: ["pipe", "pipe", "pipe"],
         });
 
-        const stdout = this.process.stdout as ReadableStream<Uint8Array>;
-        const stdin = this.process.stdin as FileSink;
+        const stdout = Readable.toWeb(this.process.stdout!) as ReadableStream<Uint8Array>;
+        const nodeStdin = this.process.stdin!;
+        const writableStdin = new WritableStream<Uint8Array>({
+            write(chunk) {
+                nodeStdin.write(chunk);
+            },
+            close() {
+                nodeStdin.end();
+            },
+        });
 
-        if (!stdout || !stdin) {
-            throw new Error("Failed to get stdio streams from ACP subprocess");
-        }
-
-        const stream = ndJsonStream(
-            new WritableStream({
-                write(chunk) {
-                    stdin.write(chunk);
-                },
-                close() {
-                    stdin.end();
-                },
-            }),
-            stdout,
-        );
+        const stream = ndJsonStream(writableStdin, stdout);
 
         this.connection = new ClientSideConnection(this.createClient(), stream);
 
@@ -155,7 +148,7 @@ export class AcpCaller implements IAgentCaller {
 
     private async readStderr(): Promise<void> {
         if (!this.process?.stderr) return;
-        const reader = (this.process.stderr as ReadableStream<Uint8Array>).getReader();
+        const reader = Readable.toWeb(this.process.stderr as Readable).getReader() as ReadableStreamDefaultReader<Uint8Array>;
         const decoder = new TextDecoder();
         try {
             while (true) {

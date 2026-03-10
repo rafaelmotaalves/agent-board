@@ -1,4 +1,4 @@
-import { describe, it, expect } from "bun:test";
+import { describe, it, expect } from "@jest/globals";
 import path from "node:path";
 import os from "node:os";
 import { DATA_DIR, DB_PATH, STREAMING_DIR, ensureDataDir } from "@/lib/paths";

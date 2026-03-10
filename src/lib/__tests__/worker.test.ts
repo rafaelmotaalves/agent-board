@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach, afterEach, jest } from "bun:test";
-import { Database } from "bun:sqlite";
+import { describe, it, expect, beforeEach, afterEach, jest } from "@jest/globals";
+import Database from "better-sqlite3";
 import { TaskService } from "@/lib/taskService";
 import { TaskWorker } from "@/lib/worker";
 import type { AgentPool } from "@/lib/agents";

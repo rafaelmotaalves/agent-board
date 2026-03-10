@@ -1,4 +1,4 @@
-import { describe, it, expect, mock, afterEach } from "bun:test";
+import { describe, it, expect, afterEach, jest } from "@jest/globals";
 import { render, screen, fireEvent, cleanup } from "@testing-library/react";
 import TaskCard from "../TaskCard";
 import type { Task, Agent } from "@/lib/types";
@@ -142,7 +142,7 @@ describe("TaskCard", () => {
 
   it("calls onClick when card is clicked", () => {
     const task = makeTask();
-    const onClick = mock(() => {});
+    const onClick = jest.fn();
     render(
       <TaskCard
         task={task}
@@ -158,8 +158,8 @@ describe("TaskCard", () => {
 
   it("calls onDelete when delete button is clicked", () => {
     const task = makeTask();
-    const onDelete = mock(() => {});
-    const onClick = mock(() => {});
+    const onDelete = jest.fn();
+    const onClick = jest.fn();
     render(
       <TaskCard
         task={task}
@@ -173,7 +173,7 @@ describe("TaskCard", () => {
   });
 
   it("shows archive button in done queue for non-archived tasks", () => {
-    const onArchive = mock(() => {});
+    const onArchive = jest.fn();
     render(
       <TaskCard
         task={makeTask()}
@@ -190,7 +190,7 @@ describe("TaskCard", () => {
   });
 
   it("shows unarchive button for archived tasks", () => {
-    const onUnarchive = mock(() => {});
+    const onUnarchive = jest.fn();
     render(
       <TaskCard
         task={makeTask({ archived_at: "2026-01-02T00:00:00Z" })}
@@ -286,7 +286,7 @@ describe("TaskCard", () => {
 
   it("handles Enter keydown on the card", () => {
     const task = makeTask();
-    const onClick = mock(() => {});
+    const onClick = jest.fn();
     render(
       <TaskCard
         task={task}
@@ -301,7 +301,7 @@ describe("TaskCard", () => {
   });
 
   it("does not hide archive button when not in done queue", () => {
-    const onArchive = mock(() => {});
+    const onArchive = jest.fn();
     render(
       <TaskCard
         task={makeTask()}

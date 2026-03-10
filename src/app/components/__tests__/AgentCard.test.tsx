@@ -1,4 +1,4 @@
-import { describe, it, expect, mock, afterEach } from "bun:test";
+import { describe, it, expect, afterEach, jest } from "@jest/globals";
 import { render, screen, fireEvent, cleanup } from "@testing-library/react";
 import AgentCard from "../AgentList/AgentCard";
 import type { Agent } from "@/lib/types";
@@ -79,7 +79,7 @@ describe("AgentCard", () => {
 
   it("calls onDelete when delete button is clicked", () => {
     const agent = makeAgent();
-    const onDelete = mock(() => {});
+    const onDelete = jest.fn();
     render(<AgentCard agent={agent} onDelete={onDelete} />);
     fireEvent.click(screen.getByRole("button", { name: /delete agent/i }));
     expect(onDelete).toHaveBeenCalledWith(agent);
