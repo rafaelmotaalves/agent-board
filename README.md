@@ -1,73 +1,70 @@
-# Agent Board
+# AgentBoard
 
-A kanban-style task board where AI agents autonomously work through tasks. Create tasks, assign them to AI agents, and watch them plan and execute work in real time — with streaming responses and live status updates.
+A kanban-style task board for AI agents. Create tasks, assign them to AI agents, and watch them plan and execute work in real time — with streaming responses, tool call visibility, and live status updates.
 
 ## Features
 
-- **Kanban board** — tasks move through `pending → in_progress → done / failed` states
-- **AI agents** — register agents (backed by the GitHub Copilot SDK or any compatible endpoint) that autonomously plan and execute tasks
-- **Streaming responses** — agent output streams to the task detail modal in real time via SSE
-- **Task queue worker** — a background worker polls for queued tasks and dispatches them to available agents in the pool
-- **Conversation history** — every agent message is persisted and displayed per task
-- **SQLite persistence** — lightweight local database via `better-sqlite3`
+### Board & Task Management
+- **Three-lane kanban** — tasks flow through **Planning → Development → Done**
+- **Human-in-the-loop approval** — tasks wait for your sign-off before advancing to the next lane, giving you control between each agent phase
+- **Task detail modal** — open any task to see the full agent conversation, streamed live as the agent works
+- **Add messages mid-task** — send follow-up instructions to the agent while it is still running
+- **Archive tasks** — archive completed or unwanted tasks; toggle archived tasks on/off in the board header
+- **Active time tracking** — each task shows a live timer for how long the agent has been actively working
+- **Ready for review notifications** — You can optionally get notifications when a task is ready for review.
 
-## Tech Stack
+### Agent Integration
+- **Copilot CLI SDK agents** — connect to a locally running GitHub Copilot agent over a port
+- **ACP agents** — connect to any agent implementing the [Agent Communication Protocol](https://agentclientprotocol.org)
 
-| Layer | Technology |
-|---|---|
-| Framework | [Next.js 16](https://nextjs.org) (App Router) |
-| Runtime / Package manager | [Bun](https://bun.sh) |
-| Database | SQLite |
-| Styling | [Tailwind CSS v4](https://tailwindcss.com) |
-| AI | [GitHub Copilot SDK](https://github.com/github/copilot-sdk-js) |
-| Unit tests | Bun built-in test runner + React Testing Library |
-| E2E tests | [Playwright](https://playwright.dev) |
+---
 
 ## Getting Started
 
-### Prerequisites
-
-- [Bun](https://bun.sh) >= 1.0
-
-### Install dependencies
+**Prerequisites:** [Bun](https://bun.sh) >= 1.0
 
 ```bash
-bun install
+bunx @rafaelmotaalves/agent-board
 ```
 
-### Run the development server
+**Options**
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--port`, `-p` | `3000` | Port the web server listens on |
+| `--config` | — | Path to a JSON file for pre-registering agents (see [Registering Agents](#registering-agents)) |
 
 ```bash
-bun run dev
+# Custom port
+bunx @rafaelmotaalves/agent-board --port 4000
+
+# With a config file
+bunx @rafaelmotaalves/agent-board --config ./agents.json
+
+# Both
+bunx @rafaelmotaalves/agent-board --port 4000 --config ./agents.json
 ```
 
-Open [http://localhost:3000](http://localhost:3000) in your browser.
+---
 
-### Run the background worker
+## Registering Agents
 
-In a separate terminal:
+### Via the UI
 
-```bash
-bun run src/worker.ts
-```
+Click **Agents** in the board header to open the agent panel, then fill in the form to add a new agent.
 
-The worker polls the task queue every second and dispatches tasks to registered agents.
+### Via a config file
 
-## Agent Configuration via `--config`
+Pass `--config` when starting the board to pre-register agents from a JSON file (see [Getting Started](#getting-started)).
 
-You can pre-configure agents using a JSON config file instead of (or in addition to) the web UI. Pass the `--config` flag when starting the board:
+On startup the worker syncs agents into the database:
 
-```bash
-agent-board --config ./agents.json
-```
-
-On startup, the worker reads the config file and syncs agents into the database:
-- **New agents** (by name) are created
+- **New agents** (matched by name) are created
 - **Changed agents** are updated
 - **Unchanged agents** are skipped
-- **Agents not in the config** are left untouched (additive-only — no deletions)
+- **Agents absent from the config** are left untouched (additive-only — no deletions)
 
-### Config file schema
+#### Config schema
 
 ```json
 {
@@ -89,26 +86,57 @@ On startup, the worker reads the config file and syncs agents into the database:
 }
 ```
 
-### Agent fields
+### Using Copilot CLI
+To use Copilot CLI as an agent you can use either the `copilot_cli_sdk` or `acp`. For the `copilot_cli_sdk`, execute:
 
-| Field | Type | Required | Description |
-|---|---|---|---|
-| `name` | string | ✅ | Agent display name (used as the match key for syncing) |
-| `type` | string | No (default: `copilot_cli_sdk`) | Agent type: `copilot_cli_sdk` or `acp` |
-| `port` | number | ✅ for `copilot_cli_sdk` | Port the agent listens on (1–65535) |
-| `command` | string | ✅ for `acp` | Command to start the ACP agent |
-| `folder` | string | ✅ | Working directory for the agent |
-| `options` | object | No | Agent-specific options (e.g. `{ "parallel_planning": true }`) |
-
-## Available Scripts
-
-```bash
-bun run dev          # Dev server (Turbopack) on http://localhost:3000
-bun run build        # Production build
-bun run start        # Start production server
-bun run lint         # ESLint
-bun test             # Unit tests
-bun run test:watch   # Unit tests in watch mode
-bun run test:e2e     # Playwright E2E tests (auto-starts dev server)
-bun run test:e2e:ui  # Playwright UI mode
 ```
+copilot --headless --port 9090
+```
+
+And then add the agent with the corresponding port:
+
+```json
+    {
+      "name": "My Copilot Agent",
+      "type": "copilot_cli_sdk",
+      "port": "9090",
+      "folder": "/path/to/project"
+    }
+```
+
+To use the `acp` method, you can just add:
+
+
+```json
+    {
+      "name": "My ACP Agent",
+      "type": "acp",
+      "command": "copilot --acp",
+      "folder": "/path/to/project"
+    }
+```
+
+## Task Workflow
+
+```mermaid
+flowchart LR
+    New([New task created])
+
+    New -->|start in Planning\ndefault| PlanningQ
+    New -->|start in Development| DevQ
+
+    PlanningQ["Planning\n(queued)"]
+    PlanningQ -->|agent works| PlanningReview["Ready for review"]
+    PlanningReview -->|you approve| DevQ
+
+    DevQ["Development\n(queued)"]
+    DevQ -->|agent works| DevReview["Ready for review"]
+    DevReview -->|you approve| Done([Done])
+```
+
+---
+
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for build instructions, architecture overview, and the development workflow.
