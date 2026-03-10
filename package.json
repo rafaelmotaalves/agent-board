@@ -23,12 +23,12 @@
     "lint": "eslint --bun",
     "test": "bun test",
     "test:watch": "bun test --watch",
-    "test:e2e": "playwright test --bun",
-    "test:e2e:ui": "playwright test --ui --bun"
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui"
   },
   "dependencies": {
     "@agentclientprotocol/sdk": "^0.15.0",
-    "@github/copilot-sdk": "^0.1.30",
+    "@github/copilot-sdk": "^0.1.32",
     "@tailwindcss/typography": "^0.5.19",
     "lucide-react": "^0.576.0",
     "next": "16.1.6",

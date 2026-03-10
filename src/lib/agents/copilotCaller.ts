@@ -84,6 +84,10 @@ export class CopilotCaller implements IAgentCaller {
             ? session.on("assistant.message_delta", (event) => onDelta(event.data.deltaContent))
             : null;
 
+        session.on("session.usage_info", (event) => {
+            logger.info({ sessionId: event.id, usage: event.data }, "Usage info from Copilot session");
+        });
+
         try {
             const response = await session.sendAndWait({ prompt: prompt }, PLAN_TIMEOUT_MS);
             return response?.data.content ?? "";
@@ -111,6 +115,10 @@ export class CopilotCaller implements IAgentCaller {
             ? session.on("assistant.message_delta", (event) => onDelta(event.data.deltaContent))
             : null;
 
+        session.on("session.usage_info", (event) => {
+            logger.info({ sessionId: event.id, usage: event.data }, "Usage info from Copilot session");
+        });
+
         try {
             const response = await session.sendAndWait({ prompt: prompt }, PLAN_TIMEOUT_MS);
             return response?.data.content ?? "";
@@ -129,6 +137,10 @@ export class CopilotCaller implements IAgentCaller {
         const unsubscribe = onDelta
             ? session.on("assistant.message_delta", (event) => onDelta(event.data.deltaContent))
             : null;
+
+        session.on("session.usage_info", (event) => {
+            logger.info({ sessionId: event.id, usage: event.data }, "Usage info from Copilot session");
+        });
 
         try {
             const response = await session.sendAndWait({ prompt: prompt }, PLAN_TIMEOUT_MS);

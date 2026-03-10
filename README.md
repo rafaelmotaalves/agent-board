@@ -53,6 +53,53 @@ bun run src/worker.ts
 
 The worker polls the task queue every second and dispatches tasks to registered agents.
 
+## Agent Configuration via `--config`
+
+You can pre-configure agents using a JSON config file instead of (or in addition to) the web UI. Pass the `--config` flag when starting the board:
+
+```bash
+agent-board --config ./agents.json
+```
+
+On startup, the worker reads the config file and syncs agents into the database:
+- **New agents** (by name) are created
+- **Changed agents** are updated
+- **Unchanged agents** are skipped
+- **Agents not in the config** are left untouched (additive-only — no deletions)
+
+### Config file schema
+
+```json
+{
+  "agents": [
+    {
+      "name": "My Copilot Agent",
+      "type": "copilot_cli_sdk",
+      "port": 8000,
+      "folder": "/path/to/workspace",
+      "options": { "parallel_planning": true }
+    },
+    {
+      "name": "My ACP Agent",
+      "type": "acp",
+      "command": "python agent.py",
+      "folder": "/path/to/project"
+    }
+  ]
+}
+```
+
+### Agent fields
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `name` | string | ✅ | Agent display name (used as the match key for syncing) |
+| `type` | string | No (default: `copilot_cli_sdk`) | Agent type: `copilot_cli_sdk` or `acp` |
+| `port` | number | ✅ for `copilot_cli_sdk` | Port the agent listens on (1–65535) |
+| `command` | string | ✅ for `acp` | Command to start the ACP agent |
+| `folder` | string | ✅ | Working directory for the agent |
+| `options` | object | No | Agent-specific options (e.g. `{ "parallel_planning": true }`) |
+
 ## Available Scripts
 
 ```bash
