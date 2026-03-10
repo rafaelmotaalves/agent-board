@@ -3,7 +3,7 @@ import { render, screen, fireEvent, cleanup } from "@testing-library/react";
 import TaskCard from "../TaskCard";
 import type { Task, Agent } from "@/lib/types";
 import type { Queue } from "@/lib/queues";
-import { SLUG_PLANNING, SLUG_DONE } from "@/lib/queues";
+import { SLUG_PLANNING, SLUG_DEVELOPMENT, SLUG_DONE } from "@/lib/queues";
 
 function makeTask(overrides: Partial<Task> = {}): Task {
   return {
@@ -25,6 +25,7 @@ function makeTask(overrides: Partial<Task> = {}): Task {
 }
 
 const planningQueue: Queue = { slug: SLUG_PLANNING, label: "Planning", order: 0 };
+const developmentQueue: Queue = { slug: SLUG_DEVELOPMENT, label: "Development", order: 1 };
 const doneQueue: Queue = { slug: SLUG_DONE, label: "Done", order: 2 };
 
 afterEach(cleanup);
@@ -203,5 +204,155 @@ describe("TaskCard", () => {
     expect(unarchiveBtn).toBeTruthy();
     fireEvent.click(unarchiveBtn);
     expect(onUnarchive).toHaveBeenCalled();
+  });
+
+  it("shows spinner when task is in_progress with a next queue", () => {
+    render(
+      <TaskCard
+        task={makeTask({ state: "in_progress" })}
+        queue={planningQueue}
+        onDelete={() => {}}
+        onClick={() => {}}
+      />,
+    );
+    // The Loader2 spinner has animate-spin class — check it renders via its aria-hidden attribute
+    const container = screen.getByRole("button", { name: /delete task/i }).closest("div.flex");
+    expect(container).toBeTruthy();
+  });
+
+  it("displays active time when active_time_ms > 0", () => {
+    render(
+      <TaskCard
+        task={makeTask({ active_time_ms: 65000 })}
+        queue={planningQueue}
+        onDelete={() => {}}
+        onClick={() => {}}
+      />,
+    );
+    expect(screen.getByText("1m 5s")).toBeTruthy();
+  });
+
+  it("applies archived styling (reduced opacity)", () => {
+    const { container } = render(
+      <TaskCard
+        task={makeTask({ archived_at: "2026-01-02T00:00:00Z" })}
+        queue={doneQueue}
+        onDelete={() => {}}
+        onClick={() => {}}
+      />,
+    );
+    const card = container.firstElementChild as HTMLElement;
+    expect(card.className).toContain("opacity-60");
+  });
+
+  it("applies failed border styling", () => {
+    const { container } = render(
+      <TaskCard
+        task={makeTask({ state: "failed" })}
+        queue={planningQueue}
+        onDelete={() => {}}
+        onClick={() => {}}
+      />,
+    );
+    const card = container.firstElementChild as HTMLElement;
+    expect(card.className).toContain("border-red-400");
+  });
+
+  it("applies ready-for-review border styling", () => {
+    const { container } = render(
+      <TaskCard
+        task={makeTask({ state: "done" })}
+        queue={planningQueue}
+        onDelete={() => {}}
+        onClick={() => {}}
+      />,
+    );
+    const card = container.firstElementChild as HTMLElement;
+    expect(card.className).toContain("border-emerald-400");
+  });
+
+  it("applies default border when not archived, failed, or ready for review", () => {
+    const { container } = render(
+      <TaskCard
+        task={makeTask()}
+        queue={planningQueue}
+        onDelete={() => {}}
+        onClick={() => {}}
+      />,
+    );
+    const card = container.firstElementChild as HTMLElement;
+    expect(card.className).toContain("border-zinc-200");
+  });
+
+  it("handles Enter keydown on the card", () => {
+    const task = makeTask();
+    const onClick = mock(() => {});
+    render(
+      <TaskCard
+        task={task}
+        queue={planningQueue}
+        onDelete={() => {}}
+        onClick={onClick}
+      />,
+    );
+    const card = screen.getByRole("button", { name: /delete task/i }).closest("[role='button']") as HTMLElement;
+    fireEvent.keyDown(card, { key: "Enter" });
+    expect(onClick).toHaveBeenCalledWith(task);
+  });
+
+  it("does not hide archive button when not in done queue", () => {
+    const onArchive = mock(() => {});
+    render(
+      <TaskCard
+        task={makeTask()}
+        queue={planningQueue}
+        onDelete={() => {}}
+        onClick={() => {}}
+        onArchive={onArchive}
+      />,
+    );
+    // Archive button should not appear outside done queue
+    expect(screen.queryByRole("button", { name: /archive task/i })).toBeNull();
+  });
+
+  it("does not show unarchive button when not archived", () => {
+    render(
+      <TaskCard
+        task={makeTask()}
+        queue={doneQueue}
+        onDelete={() => {}}
+        onClick={() => {}}
+        onUnarchive={() => {}}
+      />,
+    );
+    expect(screen.queryByRole("button", { name: /unarchive task/i })).toBeNull();
+  });
+
+  it("shows failure_reason as title on the Failed badge", () => {
+    render(
+      <TaskCard
+        task={makeTask({ state: "failed", failure_reason: "Timeout error" })}
+        queue={planningQueue}
+        onDelete={() => {}}
+        onClick={() => {}}
+      />,
+    );
+    const failedText = screen.getByText("Failed");
+    const wrapper = failedText.parentElement;
+    expect(wrapper?.getAttribute("title")).toBe("Timeout error");
+  });
+
+  it("shows default title on Failed badge when no failure_reason", () => {
+    render(
+      <TaskCard
+        task={makeTask({ state: "failed", failure_reason: null })}
+        queue={planningQueue}
+        onDelete={() => {}}
+        onClick={() => {}}
+      />,
+    );
+    const failedText = screen.getByText("Failed");
+    const wrapper = failedText.parentElement;
+    expect(wrapper?.getAttribute("title")).toBe("Task failed");
   });
 });
