@@ -10,7 +10,7 @@ import { useEffect, useState } from "react";
  * - When `activeSince` is null the returned value is simply `activeTimeMs`.
  */
 export function useActiveTime(activeTimeMs: number, activeSince: string | null): number {
-  const [now, setNow] = useState(() => Date.now());
+  const [now, setNow] = useState(0);
 
   useEffect(() => {
     if (!activeSince) return;
@@ -19,7 +19,7 @@ export function useActiveTime(activeTimeMs: number, activeSince: string | null):
     return () => clearInterval(id);
   }, [activeSince]);
 
-  if (!activeSince) return activeTimeMs;
+  if (!activeSince || now === 0) return activeTimeMs;
   const sinceMs = new Date(activeSince).getTime();
   return activeTimeMs + Math.max(0, now - sinceMs);
 }
