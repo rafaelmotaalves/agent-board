@@ -102,7 +102,7 @@ export async function createAgent(
 
 export async function updateAgent(
   id: number,
-  updates: { name?: string; port?: number; type?: AgentType; folder?: string | null; options?: AgentOptions }
+  updates: { name?: string; port?: number; type?: AgentType; command?: string; folder?: string | null; options?: AgentOptions }
 ): Promise<Agent> {
   const res = await fetch(`/api/agents/${id}`, {
     method: "PATCH",
@@ -111,6 +111,9 @@ export async function updateAgent(
   });
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
+    if (res.status === 403) {
+      throw new Error(data.error ?? "This agent is managed by config and cannot be edited");
+    }
     throw new Error(data.error ?? "Failed to update agent");
   }
   return res.json();

@@ -12,6 +12,7 @@ function makeAgent(id: number, name: string): Agent {
     command: null,
     folder: "/tmp",
     options: {},
+    source: "user",
     created_at: "2026-01-01T00:00:00Z",
   };
 }

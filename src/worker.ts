@@ -1,5 +1,3 @@
-declare var self: Worker;
-
 import { TaskWorker } from "./lib/worker";
 import { TaskService } from "./lib/taskService";
 import { getDb } from "./lib/db";

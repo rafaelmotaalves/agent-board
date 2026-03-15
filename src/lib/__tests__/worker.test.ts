@@ -46,13 +46,20 @@ function createFailingAgentPool(errorMessage?: string): AgentPool {
 
 /**
  * Mock AgentPool — get() resolves synchronously (via microtask) with a mock caller.
- * getAgentOptions() returns configurable options for agent ID 1.
+ * getAgentOptions() returns configurable options. Accepts either a single AgentOptions
+ * (applied to all agents) or a map of agentId → AgentOptions for per-agent control.
  */
-function createMockAgentPool(agentOptions?: AgentOptions): AgentPool {
+function createMockAgentPool(agentOptions?: AgentOptions | Record<number, AgentOptions>): AgentPool {
   const caller = createMockCaller();
   return {
     get: () => Promise.resolve(caller),
-    getAgentOptions: () => agentOptions ?? {},
+    getAgentOptions: (agentId: number) => {
+      if (!agentOptions) return {};
+      if ("parallel_planning" in agentOptions || "parallel_development" in agentOptions) {
+        return agentOptions as AgentOptions;
+      }
+      return (agentOptions as Record<number, AgentOptions>)[agentId] ?? {};
+    },
   } as unknown as AgentPool;
 }
 
@@ -625,4 +632,109 @@ describe("TaskWorker", () => {
       const secondId = getProcessingId(worker, "development")!;
       expect(secondId).not.toBe(firstId);
     });
-  });});
+  });
+
+  describe("cross-agent parallel execution", () => {
+    let crossAgentService: TaskService;
+    let crossAgentWorker: TaskWorker;
+
+    beforeEach(() => {
+      const db = createDb();
+      // Agent 1 already exists (from createDb). Add agent 5 (no parallel options).
+      db.exec("INSERT INTO agents (id, name, port, options) VALUES (5, 'agent-b', 9995, '{}')");
+      crossAgentService = new TaskService(db);
+      crossAgentWorker = new TaskWorker(crossAgentService, createMockAgentPool(), noopStreamingStore);
+    });
+
+    afterEach(() => {
+      crossAgentWorker.stop();
+    });
+
+    it("picks up tasks from different agents in the same queue simultaneously", async () => {
+      const taskA = crossAgentService.create({ title: "Agent A plan", agent_id: 1 });
+      const taskB = crossAgentService.create({ title: "Agent B plan", agent_id: 5 });
+
+      crossAgentWorker.tick();
+      await flushMicrotasks();
+
+      const ids = getProcessingIds(crossAgentWorker, "planning");
+      expect(ids).toHaveLength(2);
+      expect(ids).toContain(taskA.id);
+      expect(ids).toContain(taskB.id);
+    });
+
+    it("picks up Agent B task even when Agent A (no parallel) is busy", async () => {
+      const taskA = crossAgentService.create({ title: "Agent A plan", agent_id: 1 });
+      crossAgentWorker.tick();
+      await flushMicrotasks();
+      expect(getProcessingIds(crossAgentWorker, "planning")).toEqual([taskA.id]);
+
+      // Now add a task for Agent B — should still be picked up
+      const taskB = crossAgentService.create({ title: "Agent B plan", agent_id: 5 });
+      crossAgentWorker.tick();
+      await flushMicrotasks();
+
+      const ids = getProcessingIds(crossAgentWorker, "planning");
+      expect(ids).toHaveLength(2);
+      expect(ids).toContain(taskA.id);
+      expect(ids).toContain(taskB.id);
+    });
+
+    it("still blocks same-agent serial tasks while different agent runs", async () => {
+      // Agent 1 has two planning tasks (no parallel_planning)
+      crossAgentService.create({ title: "Agent A plan 1", agent_id: 1 });
+      crossAgentService.create({ title: "Agent A plan 2", agent_id: 1 });
+      // Agent 5 has one planning task
+      const taskB = crossAgentService.create({ title: "Agent B plan", agent_id: 5 });
+
+      crossAgentWorker.tick();
+      await flushMicrotasks();
+
+      // Agent 1: only 1 task picked (serial). Agent 5: 1 task picked. Total: 2
+      const ids = getProcessingIds(crossAgentWorker, "planning");
+      expect(ids).toHaveLength(2);
+      expect(ids).toContain(taskB.id);
+
+      // Second tick should NOT pick up Agent A's second task
+      crossAgentWorker.tick();
+      await flushMicrotasks();
+      expect(getProcessingIds(crossAgentWorker, "planning")).toHaveLength(2);
+    });
+
+    it("picks up development tasks from different agents simultaneously", async () => {
+      const taskA = crossAgentService.create({ title: "Agent A dev", agent_id: 1 });
+      crossAgentService.update(taskA.id, { state: "done" });
+      crossAgentService.update(taskA.id, { status: "development" });
+
+      const taskB = crossAgentService.create({ title: "Agent B dev", agent_id: 5 });
+      crossAgentService.update(taskB.id, { state: "done" });
+      crossAgentService.update(taskB.id, { status: "development" });
+
+      crossAgentWorker.tick();
+      await flushMicrotasks();
+
+      const ids = getProcessingIds(crossAgentWorker, "development");
+      expect(ids).toHaveLength(2);
+      expect(ids).toContain(taskA.id);
+      expect(ids).toContain(taskB.id);
+    });
+
+    it("picks up add_message tasks from different agents simultaneously", async () => {
+      const taskA = crossAgentService.create({ title: "Agent A msg", agent_id: 1 });
+      crossAgentService.update(taskA.id, { state: "done" });
+      crossAgentService.addUserMessage(taskA.id, "Feedback for A");
+
+      const taskB = crossAgentService.create({ title: "Agent B msg", agent_id: 5 });
+      crossAgentService.update(taskB.id, { state: "done" });
+      crossAgentService.addUserMessage(taskB.id, "Feedback for B");
+
+      crossAgentWorker.tick();
+      await flushMicrotasks();
+
+      const ids = getProcessingIds(crossAgentWorker, "planning");
+      expect(ids).toHaveLength(2);
+      expect(ids).toContain(taskA.id);
+      expect(ids).toContain(taskB.id);
+    });
+  });
+});

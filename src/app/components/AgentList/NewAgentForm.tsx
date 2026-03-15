@@ -1,16 +1,19 @@
 "use client";
 
-import { useState } from "react";
-import type { AgentOptions, AgentType } from "@/lib/types";
+import { useState, useEffect } from "react";
+import type { Agent, AgentOptions, AgentType } from "@/lib/types";
 import { AGENT_TYPES, DEFAULT_AGENT_TYPE } from "@/lib/types";
 import ToggleSwitch from "@/app/components/ToggleSwitch";
 import DirectoryPicker from "@/app/components/DirectoryPicker";
 
 interface NewAgentFormProps {
   onSubmit: (name: string, port: number | undefined, type: AgentType, command: string | undefined, folder: string, options?: AgentOptions) => Promise<void>;
+  onUpdate?: (id: number, updates: { name?: string; port?: number; type?: AgentType; command?: string; folder?: string; options?: AgentOptions }) => Promise<void>;
+  editingAgent?: Agent | null;
+  onCancelEdit?: () => void;
 }
 
-export default function NewAgentForm({ onSubmit }: NewAgentFormProps) {
+export default function NewAgentForm({ onSubmit, onUpdate, editingAgent, onCancelEdit }: NewAgentFormProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [name, setName] = useState("");
   const [port, setPort] = useState("");
@@ -21,6 +24,23 @@ export default function NewAgentForm({ onSubmit }: NewAgentFormProps) {
   const [parallelDevelopment, setParallelDevelopment] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  const isEditing = !!editingAgent;
+
+  // Populate form when editing
+  useEffect(() => {
+    if (editingAgent) {
+      setName(editingAgent.name);
+      setPort(editingAgent.port?.toString() ?? "");
+      setCommand(editingAgent.command ?? "");
+      setFolder(editingAgent.folder);
+      setType(editingAgent.type);
+      setParallelPlanning(editingAgent.options?.parallel_planning ?? false);
+      setParallelDevelopment(editingAgent.options?.parallel_development ?? false);
+      setIsOpen(true);
+      setError(null);
+    }
+  }, [editingAgent]);
 
   const isAcp = type === "acp";
 
@@ -61,24 +81,28 @@ export default function NewAgentForm({ onSubmit }: NewAgentFormProps) {
       const options: AgentOptions = {};
       if (parallelPlanning) options.parallel_planning = true;
       if (parallelDevelopment) options.parallel_development = true;
-      await onSubmit(name.trim(), portNum, type, cmd, folderValue, options);
-      setName("");
-      setPort("");
-      setCommand("");
-      setFolder("");
-      setType(DEFAULT_AGENT_TYPE);
-      setParallelPlanning(false);
-      setParallelDevelopment(false);
-      setIsOpen(false);
+
+      if (isEditing && onUpdate) {
+        await onUpdate(editingAgent.id, {
+          name: name.trim(),
+          port: portNum,
+          type,
+          command: cmd,
+          folder: folderValue,
+          options,
+        });
+      } else {
+        await onSubmit(name.trim(), portNum, type, cmd, folderValue, options);
+      }
+      resetForm();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to create agent");
+      setError(err instanceof Error ? err.message : isEditing ? "Failed to update agent" : "Failed to create agent");
     } finally {
       setSubmitting(false);
     }
   }
 
-  function handleCancel() {
-    setIsOpen(false);
+  function resetForm() {
     setName("");
     setPort("");
     setCommand("");
@@ -86,7 +110,15 @@ export default function NewAgentForm({ onSubmit }: NewAgentFormProps) {
     setType(DEFAULT_AGENT_TYPE);
     setParallelPlanning(false);
     setParallelDevelopment(false);
+    setIsOpen(false);
     setError(null);
+    if (isEditing && onCancelEdit) {
+      onCancelEdit();
+    }
+  }
+
+  function handleCancel() {
+    resetForm();
   }
 
   if (!isOpen) {
@@ -105,6 +137,11 @@ export default function NewAgentForm({ onSubmit }: NewAgentFormProps) {
       onSubmit={handleSubmit}
       className="rounded-lg border border-zinc-200 bg-white p-3 shadow-sm dark:border-zinc-700 dark:bg-zinc-800"
     >
+      {isEditing && (
+        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-blue-600 dark:text-blue-400">
+          Editing Agent
+        </p>
+      )}
       <input
         type="text"
         placeholder="Agent name"
@@ -167,7 +204,7 @@ export default function NewAgentForm({ onSubmit }: NewAgentFormProps) {
           disabled={submitting}
           className="cursor-pointer rounded bg-blue-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:opacity-50"
         >
-          {submitting ? "Adding…" : "Add"}
+          {submitting ? (isEditing ? "Saving…" : "Adding…") : (isEditing ? "Save" : "Add")}
         </button>
         <button
           type="button"
