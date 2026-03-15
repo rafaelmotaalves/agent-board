@@ -73,6 +73,16 @@ export class TaskService {
     return result ?? undefined;
   }
 
+  /** Returns all pending tasks for the given queue status, ordered by created_at ASC. */
+  findAllPending(status: string): Task[] {
+    if (!isValidQueue(status)) throw new ValidationError("Invalid status");
+    return this.db
+      .prepare(
+        "SELECT * FROM tasks WHERE status = ? AND state = 'pending' ORDER BY created_at ASC"
+      )
+      .all(status) as Task[];
+  }
+
   /** Returns the oldest add_message task for the given queue status, or undefined if none. */
   findNextAddMessage(status: string): Task | undefined {
     if (!isValidQueue(status)) throw new ValidationError("Invalid status");
@@ -82,6 +92,16 @@ export class TaskService {
       )
       .get(status) as Task | null;
     return result ?? undefined;
+  }
+
+  /** Returns all add_message tasks for the given queue status, ordered by updated_at ASC. */
+  findAllAddMessages(status: string): Task[] {
+    if (!isValidQueue(status)) throw new ValidationError("Invalid status");
+    return this.db
+      .prepare(
+        "SELECT * FROM tasks WHERE status = ? AND state = 'add_message' ORDER BY updated_at ASC"
+      )
+      .all(status) as Task[];
   }
 
   create(input: CreateTaskInput): Task {

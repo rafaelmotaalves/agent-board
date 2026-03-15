@@ -39,6 +39,8 @@ export interface AgentOptions {
   parallel_development?: boolean;
 }
 
+export type AgentSource = "config" | "user";
+
 export interface Agent {
   id: number;
   name: string;
@@ -47,6 +49,7 @@ export interface Agent {
   command: string | null;
   folder: string;
   options: AgentOptions;
+  source: AgentSource;
   created_at: string;
 }
 

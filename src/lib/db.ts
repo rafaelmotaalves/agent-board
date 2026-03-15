@@ -1,6 +1,6 @@
 import { Database } from "bun:sqlite";
-import type { Task, TaskState, Agent, AgentOptions, AgentType, TaskMessage, ToolCall, TaskUsage } from "@/lib/types";
-export type { Task, TaskState, Agent, AgentOptions, AgentType, TaskMessage, ToolCall, TaskUsage };
+import type { Task, TaskState, Agent, AgentOptions, AgentType, AgentSource, TaskMessage, ToolCall, TaskUsage } from "@/lib/types";
+export type { Task, TaskState, Agent, AgentOptions, AgentType, AgentSource, TaskMessage, ToolCall, TaskUsage };
 export { isValidState, isValidAgentType, AGENT_TYPES, DEFAULT_AGENT_TYPE } from "@/lib/types";
 import { DB_PATH, ensureDataDir } from "@/lib/paths";
 
@@ -21,9 +21,16 @@ export function getDb(): Database {
         command TEXT DEFAULT NULL,
         folder TEXT NOT NULL,
         options TEXT NOT NULL DEFAULT '{}',
+        source TEXT NOT NULL DEFAULT 'user',
         created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
       )
     `);
+    // Migration: add source column if missing (existing databases)
+    try {
+      _db.exec("ALTER TABLE agents ADD COLUMN source TEXT NOT NULL DEFAULT 'user'");
+    } catch {
+      // Column already exists — ignore
+    }
     _db.exec(`
       CREATE TABLE IF NOT EXISTS tasks (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
