@@ -36,6 +36,7 @@ export const DEFAULT_AGENT_TYPE: AgentType = "copilot_cli_sdk";
 
 export interface AgentOptions {
   parallel_planning?: boolean;
+  parallel_development?: boolean;
 }
 
 export interface Agent {
