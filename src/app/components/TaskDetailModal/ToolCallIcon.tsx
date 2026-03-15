@@ -1,5 +1,6 @@
 "use client";
 
+import { createElement } from "react";
 import {
   Wrench,
   Eye,
@@ -28,6 +29,5 @@ interface ToolCallIconProps {
 }
 
 export default function ToolCallIcon({ kind, className = "h-3.5 w-3.5" }: ToolCallIconProps) {
-  const Icon = getToolIcon(kind);
-  return <Icon className={className} />;
+  return createElement(getToolIcon(kind), { className });
 }
