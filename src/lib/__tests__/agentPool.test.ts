@@ -59,10 +59,34 @@ describe("AgentPool", () => {
       expect(caller.executeTask).toBeDefined();
     });
 
-    it("returns cached caller on subsequent calls", async () => {
+    it("returns cached caller on subsequent calls with same config", async () => {
       const agent = agentService.create({ name: "Test Agent", port: 3000, folder: "/tmp" });
       const caller1 = await pool.get(agent.id);
       const caller2 = await pool.get(agent.id);
+      expect(caller1).toBe(caller2);
+    });
+
+    it("returns a new caller when the agent command is updated", async () => {
+      const agent = agentService.create({ name: "ACP Agent", folder: "/tmp", type: "acp", command: "old-cmd" });
+      const caller1 = await pool.get(agent.id);
+      agentService.update(agent.id, { command: "new-cmd" });
+      const caller2 = await pool.get(agent.id);
+      expect(caller2).not.toBe(caller1);
+    });
+
+    it("returns a new caller when the agent port is updated", async () => {
+      const agent = agentService.create({ name: "SDK Agent", port: 3000, folder: "/tmp" });
+      const caller1 = await pool.get(agent.id);
+      agentService.update(agent.id, { port: 4000 });
+      const caller2 = await pool.get(agent.id);
+      expect(caller2).not.toBe(caller1);
+    });
+
+    it("shares cached caller for agents with same command and folder", async () => {
+      const agent1 = agentService.create({ name: "ACP 1", folder: "/tmp", type: "acp", command: "same-cmd" });
+      const agent2 = agentService.create({ name: "ACP 2", folder: "/tmp", type: "acp", command: "same-cmd" });
+      const caller1 = await pool.get(agent1.id);
+      const caller2 = await pool.get(agent2.id);
       expect(caller1).toBe(caller2);
     });
 

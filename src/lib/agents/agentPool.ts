@@ -4,28 +4,47 @@ import { AcpCaller } from "./acpCaller";
 import { IAgentCaller } from "./agentCaller";
 import { Agent, AgentOptions } from "../types";
 
+/** Derives a cache key from the agent's connection parameters so callers are invalidated when the command/port changes. */
+function computeCacheKey(agent: Agent): string {
+    if (agent.type === "acp") {
+        return `acp:${agent.command}:${agent.folder}`;
+    }
+    return `copilot:${agent.port}:${agent.folder}`;
+}
+
 export class AgentPool {
-    private agents: Map<string, IAgentCaller>;
+    private callers: Map<string, IAgentCaller>;
+    private agentIdToKey: Map<number, string>;
 
     constructor(private readonly agentService: AgentService) {
-        this.agents = new Map();
+        this.callers = new Map();
+        this.agentIdToKey = new Map();
     }
 
-    private async loadAgent(agentId: number): Promise<IAgentCaller> {
-        
+    async get(agentId: number): Promise<IAgentCaller> {
         const agentInfo = await this.agentService.findById(agentId);
         if (!agentInfo) {
             throw new Error(`Agent "${agentId}" not found in the database`);
         }
-        const caller: IAgentCaller = createCallerForType(agentInfo);
-        this.agents.set(agentId.toString(), caller);
-        return caller;
-    }
 
-    async get(agentId: number): Promise<IAgentCaller> {
-        const existing = this.agents.get(agentId.toString());
-        if (existing) return existing;
-        return this.loadAgent(agentId);
+        const key = computeCacheKey(agentInfo);
+        const previousKey = this.agentIdToKey.get(agentId);
+
+        // If the agent's config changed, remove the stale cached caller
+        if (previousKey && previousKey !== key) {
+            this.callers.delete(previousKey);
+        }
+
+        const existing = this.callers.get(key);
+        if (existing) {
+            this.agentIdToKey.set(agentId, key);
+            return existing;
+        }
+
+        const caller: IAgentCaller = createCallerForType(agentInfo);
+        this.callers.set(key, caller);
+        this.agentIdToKey.set(agentId, key);
+        return caller;
     }
 
     /** Returns the agent options for the given agent ID, or undefined if not found. */
