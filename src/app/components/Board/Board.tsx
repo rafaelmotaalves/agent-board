@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback, useMemo } from "react";
 import type { Task, Agent, AgentOptions, AgentType } from "@/lib/types";
 import { Queue, QUEUES, SLUG_DONE } from "@/lib/queues";
-import { fetchTasks as apiFetchTasks, createTask, updateTaskStatus, deleteTask, fetchAgents, createAgent, deleteAgent, archiveTask, unarchiveTask, archiveAllDoneTasks } from "@/lib/api";
+import { fetchTasks as apiFetchTasks, createTask, updateTaskStatus, deleteTask, fetchAgents, createAgent, updateAgent, deleteAgent, archiveTask, unarchiveTask, archiveAllDoneTasks } from "@/lib/api";
 import TaskDetailModal from "../TaskDetailModal";
 import AgentList from "../AgentList";
 import ConfirmDeleteAgentModal from "../AgentList/ConfirmDeleteAgentModal";
@@ -25,6 +25,7 @@ export default function Board() {
   const [agentToDelete, setAgentToDelete] = useState<Agent | null>(null);
   const [deletingAgent, setDeletingAgent] = useState(false);
   const [deleteAgentError, setDeleteAgentError] = useState<string | null>(null);
+  const [editingAgent, setEditingAgent] = useState<Agent | null>(null);
 
   useEffect(() => {
     const stored = localStorage.getItem(NOTIFICATIONS_STORAGE_KEY);
@@ -127,6 +128,20 @@ export default function Board() {
     fetchAgentsData();
   }
 
+  async function handleUpdateAgent(id: number, updates: { name?: string; port?: number; type?: AgentType; command?: string; folder?: string; options?: AgentOptions }) {
+    await updateAgent(id, updates);
+    setEditingAgent(null);
+    fetchAgentsData();
+  }
+
+  function handleEditAgent(agent: Agent) {
+    setEditingAgent(agent);
+  }
+
+  function handleCancelEdit() {
+    setEditingAgent(null);
+  }
+
   function handleDeleteAgent(agent: Agent) {
     setAgentToDelete(agent);
     setDeleteAgentError(null);
@@ -193,6 +208,10 @@ export default function Board() {
             agents={agents}
             onDelete={handleDeleteAgent}
             onSubmit={handleCreateAgent}
+            onUpdate={handleUpdateAgent}
+            editingAgent={editingAgent}
+            onEdit={handleEditAgent}
+            onCancelEdit={handleCancelEdit}
           />
         )}
       </div>

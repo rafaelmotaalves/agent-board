@@ -12,6 +12,7 @@ function makeAgent(overrides: Partial<Agent> = {}): Agent {
     command: null,
     folder: "/home/user/project",
     options: {},
+    source: "user",
     created_at: "2026-01-01T00:00:00Z",
     ...overrides,
   };
@@ -83,5 +84,32 @@ describe("AgentCard", () => {
     render(<AgentCard agent={agent} onDelete={onDelete} />);
     fireEvent.click(screen.getByRole("button", { name: /delete agent/i }));
     expect(onDelete).toHaveBeenCalledWith(agent);
+  });
+
+  it("shows config badge for config-sourced agents", () => {
+    render(<AgentCard agent={makeAgent({ source: "config" })} onDelete={() => {}} />);
+    expect(screen.getByText("config")).toBeTruthy();
+  });
+
+  it("hides delete and edit buttons for config-sourced agents", () => {
+    const onDelete = mock(() => {});
+    const onEdit = mock(() => {});
+    render(<AgentCard agent={makeAgent({ source: "config" })} onDelete={onDelete} onEdit={onEdit} />);
+    expect(screen.queryByRole("button", { name: /delete agent/i })).toBeNull();
+    expect(screen.queryByRole("button", { name: /edit agent/i })).toBeNull();
+  });
+
+  it("shows edit button for user-sourced agents when onEdit is provided", () => {
+    const onEdit = mock(() => {});
+    render(<AgentCard agent={makeAgent()} onDelete={() => {}} onEdit={onEdit} />);
+    expect(screen.getByRole("button", { name: /edit agent/i })).toBeTruthy();
+  });
+
+  it("calls onEdit when edit button is clicked", () => {
+    const agent = makeAgent();
+    const onEdit = mock(() => {});
+    render(<AgentCard agent={agent} onDelete={() => {}} onEdit={onEdit} />);
+    fireEvent.click(screen.getByRole("button", { name: /edit agent/i }));
+    expect(onEdit).toHaveBeenCalledWith(agent);
   });
 });

@@ -1,6 +1,7 @@
 import { describe, it, expect } from "bun:test";
 import path from "node:path";
 import os from "node:os";
+import fs from "node:fs";
 import { DATA_DIR, DB_PATH, STREAMING_DIR, ensureDataDir } from "@/lib/paths";
 
 describe("paths", () => {
@@ -19,7 +20,6 @@ describe("paths", () => {
   it("ensureDataDir creates the streaming directory", () => {
     // This is safe to call — it creates dirs if not existing
     ensureDataDir();
-    const fs = require("node:fs");
     expect(fs.existsSync(STREAMING_DIR)).toBe(true);
   });
 });

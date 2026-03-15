@@ -16,6 +16,7 @@ function createDb(): Database {
       command TEXT DEFAULT NULL,
       folder TEXT NOT NULL,
       options TEXT NOT NULL DEFAULT '{}',
+      source TEXT NOT NULL DEFAULT 'user',
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     )
   `);

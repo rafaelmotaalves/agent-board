@@ -16,7 +16,8 @@ const POOL_INTERVAL_MS = 1000;
 
 export class TaskWorker {
   private intervalId: ReturnType<typeof setInterval> | null = null;
-  private readonly processing = new Map<string, Set<number>>(); // status → set of taskIds
+  // status → agentId → set of taskIds
+  private readonly processing = new Map<string, Map<number, Set<number>>>();
   private readonly agentPool: AgentPool;
   private readonly streaming: StreamingStore;
 
@@ -51,85 +52,98 @@ export class TaskWorker {
 
   getProcessingTasks(): Map<string, Set<number>> {
     const copy = new Map<string, Set<number>>();
-    for (const [k, v] of this.processing) {
-      copy.set(k, new Set(v));
+    for (const [status, agentMap] of this.processing) {
+      const flat = new Set<number>();
+      for (const taskIds of agentMap.values()) {
+        for (const id of taskIds) flat.add(id);
+      }
+      if (flat.size > 0) copy.set(status, flat);
     }
     return copy;
+  }
+
+  /** Returns the number of in-progress tasks for a specific agent in a status queue. */
+  private getAgentProcessingCount(status: string, agentId: number): number {
+    return this.processing.get(status)?.get(agentId)?.size ?? 0;
+  }
+
+  /** Returns whether a specific task is already being processed. */
+  private isTaskProcessing(status: string, taskId: number): boolean {
+    const agentMap = this.processing.get(status);
+    if (!agentMap) return false;
+    for (const taskIds of agentMap.values()) {
+      if (taskIds.has(taskId)) return true;
+    }
+    return false;
   }
 
   /** Exposed for testing — runs one poll cycle synchronously (scheduling only). */
   tick(): void {
     log.debug({ processing: Array.from(this.processing.entries()).map(([k, v]) => [k, [...v]]) }, "Tick");
     for (const status of PROCESSABLE_STATUSES) {
-      const currentSet = this.processing.get(status);
-      const currentCount = currentSet?.size ?? 0;
+      // Process add_message tasks first (higher priority)
+      const addMessageTasks = this.service.findAllAddMessages(status);
+      for (const task of addMessageTasks) {
+        if (this.isTaskProcessing(status, task.id)) continue;
 
-      if (currentCount > 0 && !this.allowsParallelProcessing(status)) {
-        log.debug({ status }, "Already processing a task for this status, skipping");
-        continue;
-      }
-
-      // Check for add_message tasks first (higher priority than new pending tasks)
-      const addMessageTask = this.service.findNextAddMessage(status);
-      if (addMessageTask && !currentSet?.has(addMessageTask.id)) {
-        this.processAddMessageTask(addMessageTask, status);
-        continue;
-      }
-
-      const pending = this.service.findNextPending(status);
-
-      if (!pending) {
-        log.debug({ status }, "No pending tasks");
-        continue;
-      }
-
-      if (currentSet?.has(pending.id)) continue;
-
-      // Check if the agent allows parallel processing for this status
-      if (currentCount > 0) {
-        const agentOptions = pending.agent_id
-          ? this.agentPool.getAgentOptions(pending.agent_id)
-          : undefined;
-        const allowed =
-          (status === SLUG_PLANNING && agentOptions?.parallel_planning) ||
-          (status === SLUG_DEVELOPMENT && agentOptions?.parallel_development);
-        if (!allowed) {
-          log.debug({ status }, "Agent does not allow parallel processing for this status, skipping");
-          continue;
+        const agentId = task.agent_id;
+        const agentCount = this.getAgentProcessingCount(status, agentId);
+        if (agentCount > 0) {
+          // Same agent already busy — check parallel options
+          const opts = this.agentPool.getAgentOptions(agentId);
+          const allowed =
+            (status === SLUG_PLANNING && opts?.parallel_planning) ||
+            (status === SLUG_DEVELOPMENT && opts?.parallel_development);
+          if (!allowed) continue;
         }
+
+        this.processAddMessageTask(task, status);
       }
 
-      this.processTask(pending, status);
+      // Process pending tasks
+      const pendingTasks = this.service.findAllPending(status);
+      for (const task of pendingTasks) {
+        if (this.isTaskProcessing(status, task.id)) continue;
+
+        const agentId = task.agent_id;
+        const agentCount = this.getAgentProcessingCount(status, agentId);
+        if (agentCount > 0) {
+          // Same agent already busy — check parallel options
+          const opts = this.agentPool.getAgentOptions(agentId);
+          const allowed =
+            (status === SLUG_PLANNING && opts?.parallel_planning) ||
+            (status === SLUG_DEVELOPMENT && opts?.parallel_development);
+          if (!allowed) continue;
+        }
+
+        this.processTask(task, status);
+      }
     }
   }
 
-  /** Returns true if the status queue currently allows picking up additional tasks. */
-  private allowsParallelProcessing(status: string): boolean {
-    const pending = this.service.findNextPending(status);
-    const addMsg = this.service.findNextAddMessage(status);
-    const task = addMsg ?? pending;
-    if (!task?.agent_id) return false;
-    const opts = this.agentPool.getAgentOptions(task.agent_id);
-    if (status === SLUG_PLANNING) return !!opts?.parallel_planning;
-    if (status === SLUG_DEVELOPMENT) return !!opts?.parallel_development;
-    return false;
-  }
-
-  private addProcessing(status: string, taskId: number): void {
-    let set = this.processing.get(status);
+  private addProcessing(status: string, taskId: number, agentId: number): void {
+    let agentMap = this.processing.get(status);
+    if (!agentMap) {
+      agentMap = new Map();
+      this.processing.set(status, agentMap);
+    }
+    let set = agentMap.get(agentId);
     if (!set) {
       set = new Set();
-      this.processing.set(status, set);
+      agentMap.set(agentId, set);
     }
     set.add(taskId);
   }
 
-  private removeProcessing(status: string, taskId: number): void {
-    const set = this.processing.get(status);
+  private removeProcessing(status: string, taskId: number, agentId: number): void {
+    const agentMap = this.processing.get(status);
+    if (!agentMap) return;
+    const set = agentMap.get(agentId);
     if (set) {
       set.delete(taskId);
-      if (set.size === 0) this.processing.delete(status);
+      if (set.size === 0) agentMap.delete(agentId);
     }
+    if (agentMap.size === 0) this.processing.delete(status);
   }
 
   private async callWithStreaming(
@@ -168,7 +182,7 @@ export class TaskWorker {
     };
 
     const onUsage = (event: UsageEvent) => {
-      this.service.upsertUsage(task.id, status, event.tokenLimit, event.currentTokens);
+      this.service.upsertUsage(task.id, status, event.tokenLimit, event.usedTokens);
     };
 
     try {
@@ -209,7 +223,7 @@ export class TaskWorker {
   }
 
   private async processTask(task: Task, status: string): Promise<void> {
-    this.addProcessing(status, task.id);
+    this.addProcessing(status, task.id, task.agent_id);
     this.service.update(task.id, { state: "in_progress" });
     log.info({ taskId: task.id, status, title: task.title }, "Task picked up — processing started");
 
@@ -239,12 +253,12 @@ export class TaskWorker {
       this.service.update(task.id, { state: "failed", failure_reason: reason });
       log.error({ taskId: task.id, status, err }, "Task processing failed");
     } finally {
-      this.removeProcessing(status, task.id);
+      this.removeProcessing(status, task.id, task.agent_id);
     }
   }
 
   private async processAddMessageTask(task: Task, status: string): Promise<void> {
-    this.addProcessing(status, task.id);
+    this.addProcessing(status, task.id, task.agent_id);
     this.service.update(task.id, { state: "in_progress" });
     log.info({ taskId: task.id, status, title: task.title }, "Task message received — re-processing");
 
@@ -266,7 +280,7 @@ export class TaskWorker {
       this.service.update(task.id, { state: "failed", failure_reason: reason });
       log.error({ taskId: task.id, status, err }, "Task message revision failed");
     } finally {
-      this.removeProcessing(status, task.id);
+      this.removeProcessing(status, task.id, task.agent_id);
     }
   }
 }
