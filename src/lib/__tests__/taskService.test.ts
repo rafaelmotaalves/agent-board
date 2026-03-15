@@ -68,8 +68,8 @@ describe("TaskService", () => {
     });
 
     it("throws ValidationError when title is empty", () => {
-      expect(() => service.create({ title: "" })).toThrow(ValidationError);
-      expect(() => service.create({ title: "   " })).toThrow(ValidationError);
+      expect(() => service.create({ title: "", agent_id: 1 })).toThrow(ValidationError);
+      expect(() => service.create({ title: "   ", agent_id: 1 })).toThrow(ValidationError);
     });
 
     it("creates a task with a custom status", () => {
@@ -84,11 +84,11 @@ describe("TaskService", () => {
     });
 
     it("throws ValidationError when status is done", () => {
-      expect(() => service.create({ title: "Bad task", status: "done" })).toThrow(ValidationError);
+      expect(() => service.create({ title: "Bad task", status: "done", agent_id: 1 })).toThrow(ValidationError);
     });
 
     it("throws ValidationError when status is invalid", () => {
-      expect(() => service.create({ title: "Bad task", status: "invalid" })).toThrow(ValidationError);
+      expect(() => service.create({ title: "Bad task", status: "invalid", agent_id: 1 })).toThrow(ValidationError);
     });
   });
 
