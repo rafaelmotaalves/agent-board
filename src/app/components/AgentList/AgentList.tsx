@@ -8,7 +8,7 @@ import AgentEmptyState from "./AgentEmptyState";
 interface AgentListProps {
   agents: Agent[];
   onDelete: (agent: Agent) => void;
-  onSubmit: (name: string, port: number, type: AgentType, options?: AgentOptions) => Promise<void>;
+  onSubmit: (name: string, port: number | undefined, type: AgentType, command?: string, folder?: string, options?: AgentOptions) => Promise<void>;
 }
 
 export default function AgentList({ agents, onDelete, onSubmit }: AgentListProps) {

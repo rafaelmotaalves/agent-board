@@ -1,7 +1,8 @@
-import type { Task, Agent, AgentOptions, AgentType, TaskMessage } from "@/lib/types";
+import type { Task, Agent, AgentOptions, AgentType, TaskMessage, ToolCall } from "@/lib/types";
 
-export async function fetchTasks(): Promise<Task[]> {
-  const res = await fetch("/api/tasks");
+export async function fetchTasks(includeArchived = false): Promise<Task[]> {
+  const params = includeArchived ? "?includeArchived=true" : "";
+  const res = await fetch(`/api/tasks${params}`);
   if (!res.ok) throw new Error("Failed to fetch tasks");
   return res.json();
 }
@@ -47,6 +48,32 @@ export async function retryTask(id: number): Promise<void> {
   if (!res.ok) throw new Error("Failed to retry task");
 }
 
+export async function archiveTask(id: number): Promise<Task> {
+  const res = await fetch(`/api/tasks/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "archive" }),
+  });
+  if (!res.ok) throw new Error("Failed to archive task");
+  return res.json();
+}
+
+export async function unarchiveTask(id: number): Promise<Task> {
+  const res = await fetch(`/api/tasks/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ action: "unarchive" }),
+  });
+  if (!res.ok) throw new Error("Failed to unarchive task");
+  return res.json();
+}
+
+export async function archiveAllDoneTasks(): Promise<{ archived: number }> {
+  const res = await fetch("/api/tasks/archive-done", { method: "POST" });
+  if (!res.ok) throw new Error("Failed to archive done tasks");
+  return res.json();
+}
+
 export async function fetchAgents(): Promise<Agent[]> {
   const res = await fetch("/api/agents");
   if (!res.ok) throw new Error("Failed to fetch agents");
@@ -55,14 +82,16 @@ export async function fetchAgents(): Promise<Agent[]> {
 
 export async function createAgent(
   name: string,
-  port: number,
+  port: number | undefined,
   type?: AgentType,
+  command?: string,
+  folder?: string,
   options?: AgentOptions
 ): Promise<Agent> {
   const res = await fetch("/api/agents", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name, port, type, options }),
+    body: JSON.stringify({ name, port, type, command, folder, options }),
   });
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
@@ -73,7 +102,7 @@ export async function createAgent(
 
 export async function updateAgent(
   id: number,
-  updates: { name?: string; port?: number; type?: AgentType; options?: AgentOptions }
+  updates: { name?: string; port?: number; type?: AgentType; folder?: string | null; options?: AgentOptions }
 ): Promise<Agent> {
   const res = await fetch(`/api/agents/${id}`, {
     method: "PATCH",
@@ -111,5 +140,11 @@ export async function addTaskMessage(taskId: number, content: string): Promise<T
     const data = await res.json().catch(() => ({}));
     throw new Error(data.error ?? "Failed to add message");
   }
+  return res.json();
+}
+
+export async function fetchToolCalls(taskId: number): Promise<ToolCall[]> {
+  const res = await fetch(`/api/tasks/${taskId}/tool-calls`);
+  if (!res.ok) throw new Error("Failed to fetch tool calls");
   return res.json();
 }

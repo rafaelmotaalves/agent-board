@@ -36,8 +36,15 @@ export default function Conversation({ messages, task }: ConversationProps) {
       <h3 className="mb-3 flex-shrink-0 text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
         Conversation
       </h3>
-      {messages.length === 0 && task.state !== "in_progress" ? (
-        <p className="text-sm italic text-zinc-400 dark:text-zinc-500">No messages yet — waiting for the agent…</p>
+      {messages.length === 0 ? (
+        task.state === "in_progress" ? (
+          <div className="flex items-center gap-2 text-sm italic text-zinc-400 dark:text-zinc-500">
+            <span className="inline-block h-3 w-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
+            Agent is working…
+          </div>
+        ) : (
+          <p className="text-sm italic text-zinc-400 dark:text-zinc-500">No messages yet — waiting for the agent…</p>
+        )
       ) : (
         <div className="min-h-0 flex-1 overflow-y-auto space-y-1 pr-1 pb-2">
           {messageGroups.map((group, gi) => (

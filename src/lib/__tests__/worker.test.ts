@@ -2,8 +2,8 @@ import { describe, it, expect, beforeEach, afterEach, jest, mock } from "bun:tes
 import { Database } from "bun:sqlite";
 import { TaskService } from "@/lib/taskService";
 import { TaskWorker } from "@/lib/worker";
-import type { AgentPool } from "@/lib/agentPool";
-import type { IAgentCaller } from "@/lib/agentCaller";
+import type { AgentPool } from "@/lib/agents";
+import type { IAgentCaller } from "@/lib/agents";
 import type { AgentOptions } from "@/lib/types";
 
 // Mock the streaming store so tests don't perform real file I/O
@@ -85,6 +85,8 @@ function createDb(): Database {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL,
       port INTEGER NOT NULL UNIQUE,
+      type TEXT NOT NULL DEFAULT 'copilot_cli_sdk',
+      command TEXT DEFAULT NULL,
       options TEXT NOT NULL DEFAULT '{}',
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     )
@@ -102,6 +104,7 @@ function createDb(): Database {
       completed_at TEXT DEFAULT NULL,
       active_time_ms INTEGER NOT NULL DEFAULT 0,
       active_since TEXT DEFAULT NULL,
+      archived_at TEXT DEFAULT NULL,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     )

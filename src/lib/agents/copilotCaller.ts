@@ -1,8 +1,9 @@
-import { DeltaCallback, IAgentCaller } from "./agentCaller";
-import { SLUG_PLANNING } from "./queues";
-import { Task } from "./types";
+import { AgentCallbacks, IAgentCaller } from "./agentCaller";
+import { SLUG_PLANNING } from "../queues";
+import { Task } from "../types";
 import { approveAll, CopilotClient, CopilotSession, PermissionHandler } from "@github/copilot-sdk";
-import logger from "./logger";
+import logger from "../logger";
+import { PLAN_SYSTEM_PROMPT, EXECUTE_SYSTEM_PROMPT } from "./const";
 
 const logAndApprove: PermissionHandler = (request, invocation) => {
     logger.info({ kind: request.kind, toolCallId: request.toolCallId, sessionId: invocation.sessionId }, "Approving tool permission request");
@@ -20,29 +21,12 @@ export const logAndDenyWrites: PermissionHandler = (request, invocation) => {
 
 const LOCALHOST = "localhost";
 const PLAN_TIMEOUT_MS = 3600000; // 60 minutes
-const GENERAL_GUIDELINES = `
-    * Communicate your thought process clearly and step-by-step using bullet points as you work through the task. 
-    * Include line breaks and use markdown where appropriate to improve readability.
-    * Output "Executing: \`<command>\`" before executing any commands.
-`;
-const EXECUTE_SYSTEM_MESSAGE = 
-`
-You are in execution mode. Your task is to implement the changes while following the task plan.
-${GENERAL_GUIDELINES}
-`;
-const PLAN_SYSTEM_MESSAGE = `
-You are in planning mode. Your task is to create a development plan for the given task.
-    * Do not execute any changes, just return a detailed plan in markdown format.
-    * Return the whole plan, **do not generate any files or code snippets separately and do not include any additional text**
-${GENERAL_GUIDELINES}
-`;
-
 export class CopilotCaller implements IAgentCaller {
     private readonly client: CopilotClient;
     private planningSessions: Map<number, CopilotSession>;
     private executionSessions: Map<number, CopilotSession>;
     
-    constructor(port: number) 
+    constructor(port: number, private readonly folder?: string) 
     {
         this.client = new CopilotClient({ 
             cliUrl: `${LOCALHOST}:${port}`,
@@ -59,8 +43,9 @@ export class CopilotCaller implements IAgentCaller {
         const session = await this.client.createSession({ 
             onPermissionRequest: logAndDenyWrites,
             streaming: true,
+            ...(this.folder ? { workingDirectory: this.folder, configDir: this.folder } : {}),
             systemMessage: {
-                content: PLAN_SYSTEM_MESSAGE.trim()
+                content: PLAN_SYSTEM_PROMPT
             }
         });
         this.planningSessions.set(taskId, session);
@@ -75,15 +60,17 @@ export class CopilotCaller implements IAgentCaller {
         const session = await this.client.createSession({ 
             onPermissionRequest: logAndApprove,
             streaming: true,
+            ...(this.folder ? { workingDirectory: this.folder, configDir: this.folder } : {}),
             systemMessage: {
-                content: EXECUTE_SYSTEM_MESSAGE.trim()
+                content: EXECUTE_SYSTEM_PROMPT
             }
         });
         this.executionSessions.set(taskId, session);
         return session;
     }
 
-    async planTask(task: Task, onDelta?: DeltaCallback): Promise<string> {
+    async planTask(task: Task, callbacks?: AgentCallbacks): Promise<string> {
+        const { onDelta } = callbacks ?? {};
         logger.info({ taskId: task.id, status: task.status }, "Starting task planning in agent session");
         const session = await this.getPlanningSession(task.id);
 
@@ -105,7 +92,8 @@ export class CopilotCaller implements IAgentCaller {
         }
     }
 
-    async executeTask(task: Task, messages: string[], onDelta?: DeltaCallback): Promise<string> {
+    async executeTask(task: Task, messages: string[], callbacks?: AgentCallbacks): Promise<string> {
+        const { onDelta } = callbacks ?? {};
         logger.info({ taskId: task.id, status: task.status }, "Starting task execution in agent session");
         const session = await this.getExecutionSession(task.id);
 
@@ -131,7 +119,8 @@ export class CopilotCaller implements IAgentCaller {
         }
     }
 
-    async sendMessage(task: Task, message: string, onDelta?: DeltaCallback): Promise<string> {
+    async sendMessage(task: Task, message: string, callbacks?: AgentCallbacks): Promise<string> {
+        const { onDelta } = callbacks ?? {};
         logger.info({ taskId: task.id, message, status: task.status }, "Sending message to agent session");
         const session = task.status == SLUG_PLANNING ? 
             await this.getPlanningSession(task.id) : await this.getExecutionSession(task.id);

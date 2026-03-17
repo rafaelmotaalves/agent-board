@@ -1,5 +1,5 @@
 import { describe, it, expect, mock } from "bun:test";
-import { logAndDenyWrites } from "../copilotCaller";
+import { logAndDenyWrites } from "../agents/copilotCaller";
 import { approveAll } from "@github/copilot-sdk";
 
 const invocation = { sessionId: "test-session-123" };

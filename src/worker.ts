@@ -3,8 +3,8 @@ declare var self: Worker;
 import { TaskWorker } from "./lib/worker";
 import { TaskService } from "./lib/taskService";
 import { getDb } from "./lib/db";
-import { AgentPool } from "./lib/agentPool";
-import { AgentService } from "./lib/agentService";
+import { AgentPool } from "./lib/agents";
+import { AgentService } from "./lib/agents";
 import logger from "./lib/logger";
 
 const log = logger.child({ module: "worker-entrypoint" });
