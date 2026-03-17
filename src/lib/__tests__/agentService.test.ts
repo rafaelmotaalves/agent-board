@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from "bun:test";
 import { Database } from "bun:sqlite";
-import { AgentService, AgentValidationError, AgentNotFoundError } from "@/lib/agents";
+import { AgentService, AgentValidationError, AgentNotFoundError, AgentConfigError } from "@/lib/agents";
 
 function createDb(): Database {
   const db = new Database(":memory:");
@@ -14,6 +14,7 @@ function createDb(): Database {
       command TEXT DEFAULT NULL,
       folder TEXT NOT NULL,
       options TEXT NOT NULL DEFAULT '{}',
+      source TEXT NOT NULL DEFAULT 'user',
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     )
   `);
@@ -341,6 +342,64 @@ describe("AgentService", () => {
     it("throws when creating an agent with a duplicate port", () => {
       service.create({ name: "first", port: 9000, folder: "/work" });
       expect(() => service.create({ name: "second", port: 9000, folder: "/work" })).toThrow();
+    });
+  });
+
+  // ── source field ──────────────────────────────────────────────────────────
+
+  describe("source", () => {
+    it("defaults source to 'user'", () => {
+      const agent = service.create({ name: "user-agent", port: 9100, folder: "/work" });
+      expect(agent.source).toBe("user");
+    });
+
+    it("creates agent with source 'config'", () => {
+      const agent = service.create({ name: "config-agent", port: 9200, folder: "/work", source: "config" });
+      expect(agent.source).toBe("config");
+    });
+
+    it("persists source through findById", () => {
+      const agent = service.create({ name: "persist-src", port: 9300, folder: "/work", source: "config" });
+      const found = service.findById(agent.id)!;
+      expect(found.source).toBe("config");
+    });
+
+    it("persists source through list", () => {
+      service.create({ name: "list-src", port: 9400, folder: "/work", source: "config" });
+      const agents = service.list();
+      expect(agents[0].source).toBe("config");
+    });
+  });
+
+  // ── config guard ──────────────────────────────────────────────────────────
+
+  describe("config guard", () => {
+    it("throws AgentConfigError when updating a config-sourced agent", () => {
+      const agent = service.create({ name: "cfg", port: 9500, folder: "/work", source: "config" });
+      expect(() => service.update(agent.id, { name: "new-name" })).toThrow(AgentConfigError);
+    });
+
+    it("throws AgentConfigError when deleting a config-sourced agent", () => {
+      const agent = service.create({ name: "cfg-del", port: 9600, folder: "/work", source: "config" });
+      expect(() => service.delete(agent.id)).toThrow(AgentConfigError);
+    });
+
+    it("allows updating a user-sourced agent", () => {
+      const agent = service.create({ name: "usr", port: 9700, folder: "/work" });
+      const updated = service.update(agent.id, { name: "renamed" });
+      expect(updated.name).toBe("renamed");
+    });
+
+    it("allows deleting a user-sourced agent", () => {
+      const agent = service.create({ name: "usr-del", port: 9800, folder: "/work" });
+      service.delete(agent.id);
+      expect(service.list()).toHaveLength(0);
+    });
+
+    it("allows updateFromConfig on config-sourced agents", () => {
+      const agent = service.create({ name: "cfg-upd", port: 9900, folder: "/work", source: "config" });
+      const updated = service.updateFromConfig(agent.id, { folder: "/new" });
+      expect(updated.folder).toBe("/new");
     });
   });
 });

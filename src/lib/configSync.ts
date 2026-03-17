@@ -42,11 +42,12 @@ export function syncAgentsFromConfig(config: BoardConfig, agentService: AgentSer
         command: agentConfig.command,
         folder: agentConfig.folder,
         options: agentConfig.options,
+        source: "config",
       });
       log.info({ agent: agentConfig.name }, "Created agent from config");
       created++;
     } else if (agentNeedsUpdate(existing, agentConfig)) {
-      agentService.update(existing.id, {
+      agentService.updateFromConfig(existing.id, {
         type: agentConfig.type,
         port: agentConfig.port,
         command: agentConfig.command,

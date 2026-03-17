@@ -1,5 +1,5 @@
 import { Database } from "bun:sqlite";
-import type { Agent, AgentOptions, AgentType } from "../types";
+import type { Agent, AgentOptions, AgentType, AgentSource } from "../types";
 import { isValidAgentType, DEFAULT_AGENT_TYPE } from "../types";
 import { getDb } from "../db";
 
@@ -10,6 +10,7 @@ export interface CreateAgentInput {
   command?: string;
   folder: string;
   options?: AgentOptions;
+  source?: AgentSource;
 }
 
 export interface UpdateAgentInput {
@@ -32,6 +33,13 @@ export class AgentValidationError extends Error {
   constructor(message: string) {
     super(message);
     this.name = "AgentValidationError";
+  }
+}
+
+export class AgentConfigError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "AgentConfigError";
   }
 }
 
@@ -93,15 +101,57 @@ export class AgentService {
     const folder = input.folder?.trim();
     if (!folder) throw new AgentValidationError("Working directory is required");
     const options = JSON.stringify(input.options ?? {});
+    const source = input.source ?? "user";
 
     const result = this.db
-      .prepare("INSERT INTO agents (name, port, type, command, folder, options) VALUES (?, ?, ?, ?, ?, ?)")
-      .run(name, port, type, command, folder, options);
+      .prepare("INSERT INTO agents (name, port, type, command, folder, options, source) VALUES (?, ?, ?, ?, ?, ?, ?)")
+      .run(name, port, type, command, folder, options, source);
 
     return this.findById(result.lastInsertRowid as number)!;
   }
 
   update(id: number, input: UpdateAgentInput): Agent {
+    const existing = this.findById(id);
+    if (!existing) throw new AgentNotFoundError(id);
+    if (existing.source === "config") {
+      throw new AgentConfigError("Cannot edit an agent managed by config");
+    }
+
+    if (input.type !== undefined && !isValidAgentType(input.type)) {
+      throw new AgentValidationError(`Invalid agent type: ${input.type}`);
+    }
+
+    if (input.name !== undefined) {
+      const trimmed = input.name.trim();
+      if (!trimmed) throw new AgentValidationError("Name is required");
+      input = { ...input, name: trimmed };
+    }
+
+    if (input.port !== undefined) {
+      if (!Number.isInteger(input.port) || input.port < 1 || input.port > 65535) {
+        throw new AgentValidationError("Port must be an integer between 1 and 65535");
+      }
+    }
+
+    const name = input.name ?? existing.name;
+    const port = input.port ?? existing.port;
+    const type = input.type ?? existing.type;
+    const command = input.command !== undefined ? (input.command?.trim() || null) : existing.command;
+    const folder = input.folder !== undefined ? (input.folder?.trim() || undefined) : existing.folder;
+    if (!folder) throw new AgentValidationError("Working directory is required");
+    const options = JSON.stringify(
+      input.options !== undefined ? { ...existing.options, ...input.options } : existing.options
+    );
+
+    this.db
+      .prepare("UPDATE agents SET name = ?, port = ?, type = ?, command = ?, folder = ?, options = ? WHERE id = ?")
+      .run(name, port, type, command, folder, options, id);
+
+    return this.findById(id)!;
+  }
+
+  /** Update a config-sourced agent (bypasses the config guard). Used by configSync. */
+  updateFromConfig(id: number, input: UpdateAgentInput): Agent {
     const existing = this.findById(id);
     if (!existing) throw new AgentNotFoundError(id);
 
@@ -141,6 +191,9 @@ export class AgentService {
   delete(id: number): void {
     const existing = this.findById(id);
     if (!existing) throw new AgentNotFoundError(id);
+    if (existing.source === "config") {
+      throw new AgentConfigError("Cannot delete an agent managed by config");
+    }
 
     const { count: activeTaskCount } = this.db
       .prepare(

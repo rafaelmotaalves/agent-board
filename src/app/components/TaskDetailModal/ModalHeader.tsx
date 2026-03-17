@@ -65,7 +65,7 @@ export default function ModalHeader({ task, nextQueue, workingDir, onApprove, on
             onClick={() => { onApprove(task, nextQueue); onClose(); }}
             className="cursor-pointer rounded bg-green-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-green-700"
           >
-            Approve
+            {nextQueue.slug === 'development' ? 'Start development' : 'Complete task'}
           </button>
         )}
         <button
