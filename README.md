@@ -1,32 +1,102 @@
-This is a [Next.js](https://nextjs.org) project using [Bun](https://bun.sh) as the runtime and package manager.
+# AI Board
+
+A kanban-style task board where AI agents autonomously work through tasks. Create tasks, assign them to AI agents, and watch them plan and execute work in real time — with streaming responses and live status updates.
+
+## Features
+
+- **Kanban board** — tasks move through `pending → in_progress → done / failed` states
+- **AI agents** — register agents (backed by the GitHub Copilot SDK or any compatible endpoint) that autonomously plan and execute tasks
+- **Streaming responses** — agent output streams to the task detail modal in real time via SSE
+- **Task queue worker** — a background worker polls for queued tasks and dispatches them to available agents in the pool
+- **Conversation history** — every agent message is persisted and displayed per task
+- **SQLite persistence** — lightweight local database via `better-sqlite3`
+
+## Tech Stack
+
+| Layer | Technology |
+|---|---|
+| Framework | [Next.js 16](https://nextjs.org) (App Router) |
+| Runtime / Package manager | [Bun](https://bun.sh) |
+| Database | SQLite |
+| Styling | [Tailwind CSS v4](https://tailwindcss.com) |
+| AI | [GitHub Copilot SDK](https://github.com/github/copilot-sdk-js) |
+| Unit tests | Bun built-in test runner + React Testing Library |
+| E2E tests | [Playwright](https://playwright.dev) |
 
 ## Getting Started
 
-First, install dependencies:
+### Prerequisites
+
+- [Bun](https://bun.sh) >= 1.0
+
+### Install dependencies
 
 ```bash
 bun install
 ```
 
-Then, run the development server:
+### Run the development server
 
 ```bash
 bun run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Run the background worker
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+In a separate terminal:
 
-## Learn More
+```bash
+bun run src/worker.ts
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Bun Documentation](https://bun.sh/docs) - learn about Bun runtime and tooling.
+The worker polls the task queue every second and dispatches tasks to registered agents.
 
-## Deploy on Vercel
+## Available Scripts
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```bash
+bun run dev          # Dev server (Turbopack) on http://localhost:3000
+bun run build        # Production build
+bun run start        # Start production server
+bun run lint         # ESLint
+bun test             # Unit tests
+bun run test:watch   # Unit tests in watch mode
+bun run test:e2e     # Playwright E2E tests (auto-starts dev server)
+bun run test:e2e:ui  # Playwright UI mode
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Project Structure
+
+```
+src/
+  app/
+    api/           # REST API routes (tasks, agents, SSE stream)
+    components/    # React components (Board, TaskDetailModal, AgentList)
+    page.tsx       # Entry point
+  lib/
+    agentCaller.ts   # IAgentCaller interface
+    agentPool.ts     # Agent pool management
+    agentService.ts
+    copilotCaller.ts # GitHub Copilot SDK implementation
+    db.ts            # SQLite setup
+    queues.ts        # Queue slug constants
+    taskService.ts   # Task CRUD and state machine
+    types.ts         # Shared TypeScript types
+    worker.ts        # TaskWorker - background queue processor
+  worker.ts          # Worker entry point
+e2e/               # Playwright E2E tests
+```
+
+## Environment Variables
+
+Create a `.env.local` file (never committed) for any secrets:
+
+```env
+# Add any API keys or config required by your agent implementation
+GITHUB_TOKEN=your_token_here
+```
+
+## License
+
+MIT

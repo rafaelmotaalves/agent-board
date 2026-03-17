@@ -11,9 +11,11 @@ function createDb(): Database {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       title TEXT NOT NULL,
       description TEXT DEFAULT '',
-      agent_id INTEGER DEFAULT NULL,
+      agent_id INTEGER NOT NULL,
       status TEXT NOT NULL DEFAULT 'planning',
       state TEXT NOT NULL DEFAULT 'pending',
+      failure_reason TEXT DEFAULT NULL,
+      completed_at TEXT DEFAULT NULL,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     )
@@ -25,6 +27,7 @@ function createDb(): Database {
       role TEXT NOT NULL DEFAULT 'user',
       content TEXT NOT NULL,
       task_state_at_creation TEXT NOT NULL,
+      is_complete INTEGER NOT NULL DEFAULT 1,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     )
   `);
@@ -320,6 +323,69 @@ describe("TaskService", () => {
 
     it("throws TaskNotFoundError for missing task", () => {
       expect(() => service.listMessages(999)).toThrow(TaskNotFoundError);
+    });
+  });
+
+  // ── recoverInProgressTasks ──────────────────────────────────────────────────
+
+  describe("recoverInProgressTasks", () => {
+    it("marks in_progress tasks as failed with a descriptive reason", () => {
+      const task = service.create({ title: "Stuck task" });
+      service.update(task.id, { state: "in_progress" });
+
+      const count = service.recoverInProgressTasks();
+
+      expect(count).toBe(1);
+      const recovered = service.findById(task.id)!;
+      expect(recovered.state).toBe("failed");
+      expect(recovered.failure_reason).toBe("Worker restarted while task was in progress");
+    });
+
+    it("does not affect tasks in other states", () => {
+      const pending = service.create({ title: "Pending" });
+      const done = service.create({ title: "Done" });
+      service.update(done.id, { state: "done" });
+      const failed = service.create({ title: "Failed" });
+      service.update(failed.id, { state: "failed", failure_reason: "some error" });
+
+      const count = service.recoverInProgressTasks();
+
+      expect(count).toBe(0);
+      expect(service.findById(pending.id)!.state).toBe("pending");
+      expect(service.findById(done.id)!.state).toBe("done");
+      expect(service.findById(failed.id)!.state).toBe("failed");
+      expect(service.findById(failed.id)!.failure_reason).toBe("some error");
+    });
+
+    it("returns the count of recovered tasks", () => {
+      service.create({ title: "Task 1" });
+      const t2 = service.create({ title: "Task 2" });
+      service.update(t2.id, { state: "in_progress" });
+      const t3 = service.create({ title: "Task 3" });
+      service.update(t3.id, { state: "in_progress" });
+
+      expect(service.recoverInProgressTasks()).toBe(2);
+    });
+
+    it("recovers tasks across different queues", () => {
+      const planning = service.create({ title: "Planning task" });
+      service.update(planning.id, { state: "in_progress" });
+
+      const dev = service.create({ title: "Dev task" });
+      service.update(dev.id, { state: "done" });
+      service.update(dev.id, { status: "development" });
+      service.update(dev.id, { state: "in_progress" });
+
+      const count = service.recoverInProgressTasks();
+
+      expect(count).toBe(2);
+      expect(service.findById(planning.id)!.state).toBe("failed");
+      expect(service.findById(dev.id)!.state).toBe("failed");
+    });
+
+    it("returns 0 when no tasks are in_progress", () => {
+      service.create({ title: "Pending task" });
+      expect(service.recoverInProgressTasks()).toBe(0);
     });
   });
 });

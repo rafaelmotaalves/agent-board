@@ -14,5 +14,10 @@ const agentPool = new AgentPool(new AgentService(db));
 const taskService = new TaskService(db);
 const taskWorker = new TaskWorker(taskService, agentPool);
 
+const recoveredCount = taskService.recoverInProgressTasks();
+if (recoveredCount > 0) {
+  log.info({ recoveredCount }, "Marked in_progress tasks as failed on startup");
+}
+
 log.info("Starting task worker process");
 taskWorker.start();

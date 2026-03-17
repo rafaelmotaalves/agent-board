@@ -9,13 +9,13 @@ export async function fetchTasks(): Promise<Task[]> {
 export async function createTask(
   title: string,
   description: string,
-  agentId?: number | null,
+  agentId: number,
   status?: string
 ): Promise<Task> {
   const res = await fetch("/api/tasks", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ title, description, agent_id: agentId ?? null, status }),
+    body: JSON.stringify({ title, description, agent_id: agentId, status }),
   });
   if (!res.ok) throw new Error("Failed to create task");
   return res.json();
@@ -88,7 +88,10 @@ export async function updateAgent(
 
 export async function deleteAgent(id: number): Promise<void> {
   const res = await fetch(`/api/agents/${id}`, { method: "DELETE" });
-  if (!res.ok) throw new Error("Failed to delete agent");
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error ?? "Failed to delete agent");
+  }
 }
 
 export async function fetchTaskMessages(taskId: number): Promise<TaskMessage[]> {

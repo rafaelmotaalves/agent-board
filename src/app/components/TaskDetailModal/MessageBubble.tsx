@@ -8,6 +8,7 @@ interface MessageBubbleProps {
 
 export default function MessageBubble({ message }: MessageBubbleProps) {
   const isUser = message.role === "user";
+  const isStreaming = !message.is_complete;
   return (
     <div className={`flex gap-2 ${isUser ? "flex-row-reverse" : "flex-row"}`}>
       <div className={`mt-1 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full text-white ${isUser ? "bg-zinc-500" : "bg-blue-600"}`}>
@@ -24,7 +25,16 @@ export default function MessageBubble({ message }: MessageBubbleProps) {
             <p className="whitespace-pre-wrap">{message.content}</p>
           ) : (
             <div className="prose prose-sm max-w-none dark:prose-invert prose-headings:text-zinc-800 prose-p:text-zinc-600 prose-code:rounded prose-code:bg-zinc-100 prose-code:px-1 prose-code:text-zinc-800 dark:prose-headings:text-zinc-100 dark:prose-p:text-zinc-300 dark:prose-code:bg-zinc-700 dark:prose-code:text-zinc-200">
-              <ReactMarkdown>{message.content}</ReactMarkdown>
+              {message.content ? (
+                <>
+                  <ReactMarkdown>{message.content}</ReactMarkdown>
+                  {isStreaming && (
+                    <span className="inline-block w-1.5 h-4 ml-0.5 bg-current align-middle animate-pulse" aria-hidden="true" />
+                  )}
+                </>
+              ) : isStreaming ? (
+                <span className="inline-block w-1.5 h-4 bg-current align-middle animate-pulse" aria-hidden="true" />
+              ) : null}
             </div>
           )}
         </div>

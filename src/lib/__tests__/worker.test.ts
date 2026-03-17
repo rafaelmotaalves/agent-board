@@ -66,9 +66,11 @@ function createDb(): Database {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       title TEXT NOT NULL,
       description TEXT DEFAULT '',
-      agent_id INTEGER DEFAULT NULL REFERENCES agents(id) ON DELETE SET NULL,
+      agent_id INTEGER NOT NULL REFERENCES agents(id) ON DELETE RESTRICT,
       status TEXT NOT NULL DEFAULT 'planning',
       state TEXT NOT NULL DEFAULT 'pending',
+      failure_reason TEXT DEFAULT NULL,
+      completed_at TEXT DEFAULT NULL,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     )
@@ -80,6 +82,7 @@ function createDb(): Database {
       role TEXT NOT NULL DEFAULT 'user',
       content TEXT NOT NULL,
       task_state_at_creation TEXT NOT NULL,
+      is_complete INTEGER NOT NULL DEFAULT 1,
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     )
   `);
@@ -283,6 +286,21 @@ describe("TaskWorker", () => {
 
       expect(service.findById(task.id)!.state).toBe("done");
       expect(worker.getProcessingTasks().has("planning")).toBe(false);
+    });
+  });
+
+  describe("startup recovery", () => {
+    it("marks stuck in_progress tasks as failed before polling begins", () => {
+      // Simulate a task left in_progress from a previous run
+      const task = service.create({ title: "Stuck", agent_id: 1 });
+      service.update(task.id, { state: "in_progress" });
+
+      const count = service.recoverInProgressTasks();
+
+      expect(count).toBe(1);
+      const recovered = service.findById(task.id)!;
+      expect(recovered.state).toBe("failed");
+      expect(recovered.failure_reason).toBe("Worker restarted while task was in progress");
     });
   });
 

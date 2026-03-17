@@ -131,12 +131,31 @@ export class TaskWorker {
 
         const messages = 
           this.service.listMessages(task.id).map(msg => msg.content);
+
+        // Create streaming placeholder so UI updates during generation
+        const streamingMsg = this.service.createStreamingAgentMessage(task.id, status);
+        let accumulated = "";
+        let lastFlush = Date.now();
+        const FLUSH_INTERVAL_MS = 300;
+
+        const onDelta = (delta: string) => {
+          logger.info({ taskId: task.id, agentId: task.agent_id, status, delta }, "Received message delta from agent");
+          accumulated += delta;
+          const now = Date.now();
+          if (now - lastFlush >= FLUSH_INTERVAL_MS) {
+            this.service.updateMessageContent(streamingMsg.id, accumulated, false);
+            lastFlush = now;
+          }
+        };
+
         const response = status === SLUG_PLANNING
-          ? await caller.planTask(task)
-          : await caller.executeTask(task, messages);
-        
-        log.info({ taskId: task.id, agentId: task.agent_id, status }, "Agent responded, saving message");
-        this.service.addAgentMessage(task.id, response, status);
+          ? await caller.planTask(task, onDelta)
+          : await caller.executeTask(task, messages, onDelta);
+
+        // Finalize: use the full response from sendAndWait (authoritative), fall back to accumulated
+        const finalContent = (response || accumulated).trim();
+        log.info({ taskId: task.id, agentId: task.agent_id, status }, "Agent responded, finalizing message");
+        this.service.updateMessageContent(streamingMsg.id, finalContent, true);
       }
 
       this.service.update(task.id, { state: "done" });
@@ -162,8 +181,23 @@ export class TaskWorker {
         const caller = await this.agentPool.get(task.agent_id);
         log.info({ taskId: task.id, agentId: task.agent_id, status }, "Calling agent for message revision");
 
-        const response = await caller.sendMessage(task, message?.content ?? "");
-        this.service.addAgentMessage(task.id, response, status);
+        const streamingMsg = this.service.createStreamingAgentMessage(task.id, status);
+        let accumulated = "";
+        let lastFlush = Date.now();
+        const FLUSH_INTERVAL_MS = 300;
+
+        const onDelta = (delta: string) => {
+          accumulated += delta;
+          const now = Date.now();
+          if (now - lastFlush >= FLUSH_INTERVAL_MS) {
+            this.service.updateMessageContent(streamingMsg.id, accumulated, false);
+            lastFlush = now;
+          }
+        };
+
+        const response = await caller.sendMessage(task, message?.content ?? "", onDelta);
+        const finalContent = (response || accumulated).trim();
+        this.service.updateMessageContent(streamingMsg.id, finalContent, true);
       }
       
       this.service.update(task.id, { state: "done" });

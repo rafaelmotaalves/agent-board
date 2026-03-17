@@ -23,6 +23,9 @@ export async function DELETE(
     if (e instanceof AgentNotFoundError) {
       return NextResponse.json({ error: e.message }, { status: 404 });
     }
+    if (e instanceof AgentValidationError) {
+      return NextResponse.json({ error: e.message }, { status: 400 });
+    }
     throw e;
   }
 }

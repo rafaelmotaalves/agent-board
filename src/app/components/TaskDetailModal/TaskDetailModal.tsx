@@ -40,12 +40,17 @@ export default function TaskDetailModal({ task, agents, onClose, onApprove, onDe
     es.onmessage = (event) => {
       const data = JSON.parse(event.data) as
         | { type: "init"; messages: TaskMessage[] }
-        | { type: "new_messages"; messages: TaskMessage[] };
+        | { type: "new_messages"; messages: TaskMessage[] }
+        | { type: "message_updated"; message: TaskMessage };
 
       if (data.type === "init") {
         setMessages(data.messages);
       } else if (data.type === "new_messages") {
         setMessages((prev) => [...prev, ...data.messages]);
+      } else if (data.type === "message_updated") {
+        setMessages((prev) =>
+          prev.map((m) => (m.id === data.message.id ? data.message : m))
+        );
       }
     };
 

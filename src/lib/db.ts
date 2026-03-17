@@ -18,7 +18,7 @@ export function getDb(): Database {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         title TEXT NOT NULL,
         description TEXT DEFAULT '',
-        agent_id INTEGER DEFAULT NULL REFERENCES agents(id) ON DELETE SET NULL,
+        agent_id INTEGER NOT NULL REFERENCES agents(id) ON DELETE RESTRICT,
         status TEXT NOT NULL DEFAULT 'planning',
         state TEXT NOT NULL DEFAULT 'pending',
         failure_reason TEXT DEFAULT NULL,
@@ -35,7 +35,7 @@ export function getDb(): Database {
       _db.exec("ALTER TABLE tasks ADD COLUMN state TEXT NOT NULL DEFAULT 'pending'");
     }
     if (!cols.includes("agent_id")) {
-      _db.exec("ALTER TABLE tasks ADD COLUMN agent_id INTEGER DEFAULT NULL REFERENCES agents(id) ON DELETE SET NULL");
+      _db.exec("ALTER TABLE tasks ADD COLUMN agent_id INTEGER REFERENCES agents(id) ON DELETE RESTRICT");
     }
     if (!cols.includes("failure_reason")) {
       _db.exec("ALTER TABLE tasks ADD COLUMN failure_reason TEXT DEFAULT NULL");
@@ -78,6 +78,9 @@ export function getDb(): Database {
     );
     if (!msgCols.includes("role")) {
       _db.exec("ALTER TABLE task_messages ADD COLUMN role TEXT NOT NULL DEFAULT 'user'");
+    }
+    if (!msgCols.includes("is_complete")) {
+      _db.exec("ALTER TABLE task_messages ADD COLUMN is_complete INTEGER NOT NULL DEFAULT 1");
     }
   }
   return _db;
