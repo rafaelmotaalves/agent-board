@@ -561,26 +561,30 @@ describe("TaskWorker", () => {
       failWorker.stop();
     });
 
-    it("cleans up empty streaming message on failure so retries don't leave duplicates", async () => {
+    it("marks empty streaming message as complete with fallback content on failure", async () => {
       const failWorker = new TaskWorker(service, createFailingAgentPool("agent crashed"), noopStreamingStore);
       const task = service.create({ title: "Retry task", agent_id: 1 });
 
-      // First attempt — agent fails, should clean up the empty streaming message
+      // First attempt — agent fails, should mark the streaming message as complete
       failWorker.tick();
       await flushMicrotasks();
       jest.advanceTimersByTime(AGENT_DELAY_MS);
       await flushMicrotasks();
 
       expect(service.findById(task.id)!.state).toBe("failed");
-      // The empty streaming message should have been deleted
+      // The streaming message should be marked complete (not left with is_complete=0)
       const messagesAfterFail = service.listMessages(task.id);
       const incomplete = messagesAfterFail.filter((m) => m.is_complete === 0);
       expect(incomplete).toHaveLength(0);
+      // A fallback message should exist for the agent
+      const agentMsgs = messagesAfterFail.filter((m) => m.role === "agent");
+      expect(agentMsgs.length).toBeGreaterThanOrEqual(1);
+      expect(agentMsgs[agentMsgs.length - 1].is_complete).toBe(1);
 
       // Retry — user sends a message to retry
       service.addUserMessage(task.id, "Please try again");
 
-      // Second attempt — also fails, but should NOT leave duplicate incomplete messages
+      // Second attempt — also fails, but should NOT leave incomplete messages
       failWorker.tick();
       await flushMicrotasks();
       jest.advanceTimersByTime(AGENT_DELAY_MS);
@@ -590,6 +594,42 @@ describe("TaskWorker", () => {
       const incompleteAfterRetry = messagesAfterRetry.filter((m) => m.is_complete === 0);
       expect(incompleteAfterRetry).toHaveLength(0);
       failWorker.stop();
+    });
+
+    it("preserves partial content when agent fails mid-stream", async () => {
+      // Custom caller that streams some content via onDelta, then rejects
+      const partialCaller: IAgentCaller = {
+        planTask: (_task, callbacks) =>
+          new Promise((_, rej) =>
+            setTimeout(() => {
+              callbacks?.onDelta?.("Partial ");
+              callbacks?.onDelta?.("content here");
+              rej(new Error("mid-stream crash"));
+            }, AGENT_DELAY_MS),
+          ),
+        executeTask: () => Promise.reject(new Error("unused")),
+        sendMessage: () => Promise.reject(new Error("unused")),
+      };
+      const partialPool = {
+        get: () => Promise.resolve(partialCaller),
+        getAgentOptions: () => ({}),
+      } as unknown as AgentPool;
+
+      const partialWorker = new TaskWorker(service, partialPool, noopStreamingStore);
+      const task = service.create({ title: "Partial stream task", agent_id: 1 });
+
+      partialWorker.tick();
+      await flushMicrotasks();
+      jest.advanceTimersByTime(AGENT_DELAY_MS);
+      await flushMicrotasks();
+
+      expect(service.findById(task.id)!.state).toBe("failed");
+      const msgs = service.listMessages(task.id);
+      const agentMsg = msgs.find((m) => m.role === "agent");
+      expect(agentMsg).toBeDefined();
+      expect(agentMsg!.is_complete).toBe(1);
+      expect(agentMsg!.content).toBe("Partial content here");
+      partialWorker.stop();
     });
   });
 

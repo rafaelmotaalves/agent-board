@@ -52,7 +52,7 @@ export default function Conversation({ messages, task }: ConversationProps) {
               <StateDivider label={getQueueLabel(group.state)} />
               <div className="space-y-2">
                 {group.messages.map((msg) => (
-                  <MessageBubble key={msg.id} message={msg} />
+                  <MessageBubble key={msg.id} message={msg} taskState={task.state} />
                 ))}
               </div>
             </div>

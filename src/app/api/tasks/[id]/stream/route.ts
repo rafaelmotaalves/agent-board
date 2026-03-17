@@ -117,7 +117,12 @@ export async function GET(
 
           for (const [msgId, prevContent] of streamingMessages) {
             const current = msgById.get(msgId);
-            if (!current) continue;
+            if (!current) {
+              // Message was deleted from DB while we were tracking it — notify client
+              streamingMessages.delete(msgId);
+              send({ type: "message_deleted", messageId: msgId });
+              continue;
+            }
 
             if (current.is_complete) {
               // Message is finalized in SQLite — send the authoritative content
