@@ -1,4 +1,4 @@
-import { describe, it, expect, mock, afterEach } from "bun:test";
+import { describe, it, expect, afterEach } from "bun:test";
 import { render, screen, cleanup } from "@testing-library/react";
 import BoardColumn from "../Board/BoardColumn";
 import type { Task, Agent } from "@/lib/types";

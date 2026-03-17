@@ -19,6 +19,7 @@ describe("paths", () => {
   it("ensureDataDir creates the streaming directory", () => {
     // This is safe to call — it creates dirs if not existing
     ensureDataDir();
+    // eslint-disable-next-line @typescript-eslint/no-require-imports -- dynamic require needed for test isolation
     const fs = require("node:fs");
     expect(fs.existsSync(STREAMING_DIR)).toBe(true);
   });

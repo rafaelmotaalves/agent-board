@@ -1,4 +1,4 @@
-import { Task, TaskMessage } from "../types";
+import { Task } from "../types";
 
 export type DeltaCallback = (delta: string) => void;
 
