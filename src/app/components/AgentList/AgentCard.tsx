@@ -21,18 +21,20 @@ export default function AgentCard({ agent, onDelete, onEdit }: AgentCardProps) {
         <p className="truncate text-sm font-semibold text-zinc-900 dark:text-zinc-100">
           {agent.name}
         </p>
-        <div className="flex items-center gap-1 text-xs text-zinc-500 dark:text-zinc-400">
-          <span className="truncate" title={connectionInfo ?? undefined}>{connectionInfo}</span>
-          <span className="ml-1 inline-flex shrink-0 items-center rounded-full bg-emerald-100 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
+        <p className="truncate text-xs text-zinc-500 dark:text-zinc-400" title={connectionInfo ?? undefined}>
+          {connectionInfo}
+        </p>
+        <div className="flex flex-wrap items-center gap-1">
+          <span className="inline-flex shrink-0 items-center rounded-full bg-emerald-100 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
             {typeLabel}
           </span>
           {agent.options?.parallel_planning && (
-            <span className="ml-1 inline-flex shrink-0 items-center rounded-full bg-blue-100 px-1.5 py-0.5 text-[10px] font-medium text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
+            <span className="inline-flex shrink-0 items-center rounded-full bg-blue-100 px-1.5 py-0.5 text-[10px] font-medium text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
               parallel
             </span>
           )}
           {isConfig && (
-            <span className="ml-1 inline-flex shrink-0 items-center gap-0.5 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
+            <span className="inline-flex shrink-0 items-center gap-0.5 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-300">
               <LockIcon className="h-2.5 w-2.5" />
               config
             </span>

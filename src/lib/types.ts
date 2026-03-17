@@ -22,8 +22,8 @@ export interface Task {
 }
 
 export const AGENT_TYPES = [
-  { value: "copilot_cli_sdk", label: "Copilot CLI SDK" },
-  { value: "acp", label: "ACP Agent" },
+  { value: "copilot_cli_sdk", label: "Copilot CLI" },
+  { value: "acp", label: "Agent Communication Protocol (ACP)" },
 ] as const;
 
 export type AgentType = (typeof AGENT_TYPES)[number]["value"];
