@@ -33,10 +33,9 @@ jobs:
         if: always()
         with:
           report-path: ./junit.xml
-          failed-report: true
-          annotate: true
+          summary-delta-report: true
           pull-request-report: true
-          github-report: true
+          failed-report: true
           exit-on-fail: true
           integrations-config: |
             {
