@@ -64,7 +64,7 @@ export class TaskWorker {
       const currentSet = this.processing.get(status);
       const currentCount = currentSet?.size ?? 0;
 
-      if (currentCount > 0 && !this.allowsParallelPlanning(status)) {
+      if (currentCount > 0 && !this.allowsParallelProcessing(status)) {
         log.debug({ status }, "Already processing a task for this status, skipping");
         continue;
       }
@@ -85,13 +85,16 @@ export class TaskWorker {
 
       if (currentSet?.has(pending.id)) continue;
 
-      // Check if the agent allows parallel planning
-      if (currentCount > 0 && status === SLUG_PLANNING) {
+      // Check if the agent allows parallel processing for this status
+      if (currentCount > 0) {
         const agentOptions = pending.agent_id
           ? this.agentPool.getAgentOptions(pending.agent_id)
           : undefined;
-        if (!agentOptions?.parallel_planning) {
-          log.debug({ status }, "Agent does not allow parallel planning, skipping");
+        const allowed =
+          (status === SLUG_PLANNING && agentOptions?.parallel_planning) ||
+          (status === SLUG_DEVELOPMENT && agentOptions?.parallel_development);
+        if (!allowed) {
+          log.debug({ status }, "Agent does not allow parallel processing for this status, skipping");
           continue;
         }
       }
@@ -101,15 +104,15 @@ export class TaskWorker {
   }
 
   /** Returns true if the status queue currently allows picking up additional tasks. */
-  private allowsParallelPlanning(status: string): boolean {
-    if (status !== SLUG_PLANNING) return false;
-    // Check if there's any pending/add_message task whose agent has parallel_planning
+  private allowsParallelProcessing(status: string): boolean {
     const pending = this.service.findNextPending(status);
     const addMsg = this.service.findNextAddMessage(status);
     const task = addMsg ?? pending;
     if (!task?.agent_id) return false;
     const opts = this.agentPool.getAgentOptions(task.agent_id);
-    return !!opts?.parallel_planning;
+    if (status === SLUG_PLANNING) return !!opts?.parallel_planning;
+    if (status === SLUG_DEVELOPMENT) return !!opts?.parallel_development;
+    return false;
   }
 
   private addProcessing(status: string, taskId: number): void {

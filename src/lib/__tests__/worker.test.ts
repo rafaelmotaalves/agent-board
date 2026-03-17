@@ -388,6 +388,116 @@ describe("TaskWorker", () => {
     });
   });
 
+  describe("parallel development", () => {
+    let parallelDevService: TaskService;
+    let parallelDevWorker: TaskWorker;
+
+    beforeEach(() => {
+      const db = createDb();
+      db.exec("INSERT INTO agents (id, name, port, options) VALUES (3, 'parallel-dev-agent', 9997, '{\"parallel_development\":true}')");
+      parallelDevService = new TaskService(db);
+      parallelDevWorker = new TaskWorker(parallelDevService, createMockAgentPool({ parallel_development: true }), noopStreamingStore);
+    });
+
+    afterEach(() => {
+      parallelDevWorker.stop();
+    });
+
+    it("picks up multiple development tasks when parallel_development is enabled", async () => {
+      const task1 = parallelDevService.create({ title: "Dev 1", agent_id: 3 });
+      parallelDevService.update(task1.id, { state: "done" });
+      parallelDevService.update(task1.id, { status: "development" });
+
+      const task2 = parallelDevService.create({ title: "Dev 2", agent_id: 3 });
+      parallelDevService.update(task2.id, { state: "done" });
+      parallelDevService.update(task2.id, { status: "development" });
+
+      parallelDevWorker.tick();
+      await flushMicrotasks();
+      parallelDevWorker.tick();
+      await flushMicrotasks();
+
+      const ids = getProcessingIds(parallelDevWorker, "development");
+      expect(ids).toHaveLength(2);
+      expect(ids).toContain(task1.id);
+      expect(ids).toContain(task2.id);
+    });
+
+    it("does not pick up multiple development tasks when parallel_development is disabled", async () => {
+      // Use the default worker (no parallel_development)
+      const task1 = service.create({ title: "Dev 1", agent_id: 1 });
+      service.update(task1.id, { state: "done" });
+      service.update(task1.id, { status: "development" });
+
+      const task2 = service.create({ title: "Dev 2", agent_id: 1 });
+      service.update(task2.id, { state: "done" });
+      service.update(task2.id, { status: "development" });
+
+      worker.tick();
+      await flushMicrotasks();
+      worker.tick();
+      await flushMicrotasks();
+
+      expect(getProcessingIds(worker, "development")).toHaveLength(1);
+    });
+
+    it("does not pick up multiple planning tasks when only parallel_development is enabled", async () => {
+      const task1 = parallelDevService.create({ title: "Plan 1", agent_id: 3 });
+      const task2 = parallelDevService.create({ title: "Plan 2", agent_id: 3 });
+
+      parallelDevWorker.tick();
+      await flushMicrotasks();
+      parallelDevWorker.tick();
+      await flushMicrotasks();
+
+      expect(getProcessingIds(parallelDevWorker, "planning")).toHaveLength(1);
+    });
+  });
+
+  describe("parallel planning and development combined", () => {
+    let combinedService: TaskService;
+    let combinedWorker: TaskWorker;
+
+    beforeEach(() => {
+      const db = createDb();
+      db.exec("INSERT INTO agents (id, name, port, options) VALUES (4, 'full-parallel-agent', 9996, '{\"parallel_planning\":true,\"parallel_development\":true}')");
+      combinedService = new TaskService(db);
+      combinedWorker = new TaskWorker(combinedService, createMockAgentPool({ parallel_planning: true, parallel_development: true }), noopStreamingStore);
+    });
+
+    afterEach(() => {
+      combinedWorker.stop();
+    });
+
+    it("picks up multiple planning and development tasks concurrently", async () => {
+      const plan1 = combinedService.create({ title: "Plan 1", agent_id: 4 });
+      const plan2 = combinedService.create({ title: "Plan 2", agent_id: 4 });
+
+      const dev1 = combinedService.create({ title: "Dev 1", agent_id: 4 });
+      combinedService.update(dev1.id, { state: "done" });
+      combinedService.update(dev1.id, { status: "development" });
+
+      const dev2 = combinedService.create({ title: "Dev 2", agent_id: 4 });
+      combinedService.update(dev2.id, { state: "done" });
+      combinedService.update(dev2.id, { status: "development" });
+
+      combinedWorker.tick();
+      await flushMicrotasks();
+      combinedWorker.tick();
+      await flushMicrotasks();
+
+      const planIds = getProcessingIds(combinedWorker, "planning");
+      expect(planIds).toHaveLength(2);
+      expect(planIds).toContain(plan1.id);
+      expect(planIds).toContain(plan2.id);
+
+      const devIds = getProcessingIds(combinedWorker, "development");
+      expect(devIds).toHaveLength(2);
+      expect(devIds).toContain(dev1.id);
+      expect(devIds).toContain(dev2.id);
+    });
+  });
+
   describe("error handling", () => {
     it("marks a planning task as failed when the agent throws", async () => {
       const failWorker = new TaskWorker(service, createFailingAgentPool("something went wrong"), noopStreamingStore);
