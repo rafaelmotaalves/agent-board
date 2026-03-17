@@ -7,10 +7,7 @@
  * content changes directly from the filesystem at low latency.
  *
  * All writes use synchronous fs calls (`writeFileSync` / `appendFileSync`) so
- * that each chunk is immediately visible on disk to the SSE reader.  A previous
- * implementation used a buffered `WriteStream` whose 16 KB internal buffer
- * prevented tiny LLM deltas from reaching disk, causing the SSE route to see an
- * empty file until the stream was closed.
+ * that each chunk is immediately visible on disk to the SSE reader.
  *
  * Lifecycle:
  *   initStreamingFile()     → worker creates an empty file on disk
