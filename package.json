@@ -1,7 +1,17 @@
 {
   "name": "agent-board",
   "version": "0.1.0",
-  "private": true,
+  "bin": {
+    "agent-board": "./bin/agent-board.mjs"
+  },
+  "files": [
+    "bin",
+    "src",
+    "public",
+    "next.config.ts",
+    "tsconfig.json",
+    "postcss.config.mjs"
+  ],
   "scripts": {
     "dev": "bun --bun next dev",
     "build": "bun --bun next build",
