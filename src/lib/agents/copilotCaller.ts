@@ -5,11 +5,26 @@ import { approveAll, CopilotClient, CopilotSession, PermissionHandler } from "@g
 import logger from "../logger";
 import { PLAN_SYSTEM_PROMPT, EXECUTE_SYSTEM_PROMPT } from "./const";
 
-const logAndApprove: PermissionHandler = (request, invocation) => {
-    logger.info({ kind: request.kind, toolCallId: request.toolCallId, sessionId: invocation.sessionId }, "Approving tool permission request");
-    return approveAll(request, invocation);
-};
+export function createPermissionHandler(
+    kindMap: Map<string, string>,
+    denyWrites: boolean
+): PermissionHandler {
+    return (request, invocation) => {
+        if (request.toolCallId && request.kind) {
+            kindMap.set(request.toolCallId, request.kind);
+        }
 
+        if (denyWrites && request.kind === "write") {
+            logger.info({ kind: request.kind, toolCallId: request.toolCallId, sessionId: invocation.sessionId }, "Denying write permission request in planning mode");
+            return { kind: "denied-by-rules", rules: [{ description: "Write operations are not allowed during planning mode" }] };
+        }
+
+        logger.info({ kind: request.kind, toolCallId: request.toolCallId, sessionId: invocation.sessionId }, "Approving tool permission request");
+        return approveAll(request, invocation);
+    };
+}
+
+/** @deprecated Use createPermissionHandler instead. Kept for backward compatibility in tests. */
 export const logAndDenyWrites: PermissionHandler = (request, invocation) => {
     if (request.kind === "write") {
         logger.info({ kind: request.kind, toolCallId: request.toolCallId, sessionId: invocation.sessionId }, "Denying write permission request in planning mode");
@@ -25,6 +40,7 @@ export class CopilotCaller implements IAgentCaller {
     private readonly client: CopilotClient;
     private planningSessions: Map<number, CopilotSession>;
     private executionSessions: Map<number, CopilotSession>;
+    private toolCallKindMap: Map<string, string> = new Map();
     
     constructor(port: number, private readonly folder: string) 
     {
@@ -41,7 +57,7 @@ export class CopilotCaller implements IAgentCaller {
         }
         logger.info({ taskId }, "Creating new execution session for task planning");
         const session = await this.client.createSession({ 
-            onPermissionRequest: logAndDenyWrites,
+            onPermissionRequest: createPermissionHandler(this.toolCallKindMap, true),
             streaming: true,
             workingDirectory: this.folder, configDir: this.folder,
             systemMessage: {
@@ -58,7 +74,7 @@ export class CopilotCaller implements IAgentCaller {
         }
         logger.info({ taskId }, "Creating new execution session for task execution");
         const session = await this.client.createSession({ 
-            onPermissionRequest: logAndApprove,
+            onPermissionRequest: createPermissionHandler(this.toolCallKindMap, false),
             streaming: true,
             workingDirectory: this.folder, configDir: this.folder,
             systemMessage: {
@@ -67,6 +83,47 @@ export class CopilotCaller implements IAgentCaller {
         });
         this.executionSessions.set(taskId, session);
         return session;
+    }
+
+    private setupToolCallListeners(session: CopilotSession, callbacks: AgentCallbacks): (() => void)[] {
+        const unsubscribers: (() => void)[] = [];
+        const { onToolCall, onToolCallUpdate } = callbacks;
+
+        if (onToolCall) {
+            const unsub = session.on("tool.execution_start", (event) => {
+                const kind = event.data.toolCallId
+                    ? this.toolCallKindMap.get(event.data.toolCallId)
+                    : undefined;
+                onToolCall({
+                    toolCallId: event.data.toolCallId,
+                    toolName: event.data.toolName,
+                    input: event.data.arguments ? JSON.stringify(event.data.arguments) : undefined,
+                    kind: kind!,
+                });
+            });
+            unsubscribers.push(unsub);
+        }
+
+        if (onToolCallUpdate) {
+            const unsub = session.on("tool.execution_complete", (event) => {
+                const kind = event.data.toolCallId
+                    ? this.toolCallKindMap.get(event.data.toolCallId)
+                    : undefined;
+                onToolCallUpdate({
+                    toolCallId: event.data.toolCallId,
+                    output: event.data.result?.content,
+                    status: event.data.success ? "completed" : "failed",
+                    kind: kind!,
+                });
+                // Clean up the kind map entry
+                if (event.data.toolCallId) {
+                    this.toolCallKindMap.delete(event.data.toolCallId);
+                }
+            });
+            unsubscribers.push(unsub);
+        }
+
+        return unsubscribers;
     }
 
     async planTask(task: Task, callbacks?: AgentCallbacks): Promise<string> {
@@ -80,9 +137,10 @@ export class CopilotCaller implements IAgentCaller {
         Description: ${task.description}
         `;
 
-        const unsubscribe = onDelta
+        const unsubscribeDelta = onDelta
             ? session.on("assistant.message_delta", (event) => onDelta(event.data.deltaContent))
             : null;
+        const toolCallUnsubscribers = callbacks ? this.setupToolCallListeners(session, callbacks) : [];
 
         session.on("session.usage_info", (event) => {
             logger.info({ sessionId: event.id, usage: event.data }, "Usage info from Copilot session");
@@ -92,7 +150,8 @@ export class CopilotCaller implements IAgentCaller {
             const response = await session.sendAndWait({ prompt: prompt }, PLAN_TIMEOUT_MS);
             return response?.data.content ?? "";
         } finally {
-            unsubscribe?.();
+            unsubscribeDelta?.();
+            toolCallUnsubscribers.forEach(unsub => unsub());
         }
     }
 
@@ -111,9 +170,10 @@ export class CopilotCaller implements IAgentCaller {
         `;
         logger.info({ taskId: task.id, status: task.status, prompt }, "Sending execution prompt to agent session");
 
-        const unsubscribe = onDelta
+        const unsubscribeDelta = onDelta
             ? session.on("assistant.message_delta", (event) => onDelta(event.data.deltaContent))
             : null;
+        const toolCallUnsubscribers = callbacks ? this.setupToolCallListeners(session, callbacks) : [];
 
         session.on("session.usage_info", (event) => {
             logger.info({ sessionId: event.id, usage: event.data }, "Usage info from Copilot session");
@@ -123,7 +183,8 @@ export class CopilotCaller implements IAgentCaller {
             const response = await session.sendAndWait({ prompt: prompt }, PLAN_TIMEOUT_MS);
             return response?.data.content ?? "";
         } finally {
-            unsubscribe?.();
+            unsubscribeDelta?.();
+            toolCallUnsubscribers.forEach(unsub => unsub());
         }
     }
 
@@ -134,9 +195,10 @@ export class CopilotCaller implements IAgentCaller {
             await this.getPlanningSession(task.id) : await this.getExecutionSession(task.id);
         const prompt = message;
 
-        const unsubscribe = onDelta
+        const unsubscribeDelta = onDelta
             ? session.on("assistant.message_delta", (event) => onDelta(event.data.deltaContent))
             : null;
+        const toolCallUnsubscribers = callbacks ? this.setupToolCallListeners(session, callbacks) : [];
 
         session.on("session.usage_info", (event) => {
             logger.info({ sessionId: event.id, usage: event.data }, "Usage info from Copilot session");
@@ -146,7 +208,8 @@ export class CopilotCaller implements IAgentCaller {
             const response = await session.sendAndWait({ prompt: prompt }, PLAN_TIMEOUT_MS);
             return response?.data.content ?? "";
         } finally {
-            unsubscribe?.();
+            unsubscribeDelta?.();
+            toolCallUnsubscribers.forEach(unsub => unsub());
         }
     }
 }
