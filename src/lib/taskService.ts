@@ -13,10 +13,6 @@ export interface CreateTaskInput {
 export interface UpdateTaskInput {
   title?: string;
   description?: string;
-  /** Markdown plan — settable via API only */
-  plan?: string | null;
-  /** Markdown execution log — settable via API only */
-  execution?: string | null;
   /** Queue column (planning | development | done) */
   status?: string;
   /** Per-queue state (pending | in_progress | done) */
@@ -95,9 +91,11 @@ export class TaskService {
       )
       .run(title, description, agent_id);
 
+    const taskId = result.lastInsertRowid as number;
+
     return this.db
       .prepare("SELECT * FROM tasks WHERE id = ?")
-      .get(result.lastInsertRowid) as unknown as Task;
+      .get(taskId) as unknown as Task;
   }
 
   update(id: number, input: UpdateTaskInput): Task {
@@ -107,8 +105,6 @@ export class TaskService {
     const title = input.title !== undefined ? input.title.trim() : existing.title;
     const description =
       input.description ? input.description.trim() : existing.description;
-    const plan = input.plan !== undefined ? input.plan : existing.plan;
-    const execution = input.execution !== undefined ? input.execution : existing.execution;
     const status = input.status ? input.status : existing.status;
     const statusChanged = input.status !== undefined && input.status !== existing.status;
 
@@ -118,14 +114,13 @@ export class TaskService {
     }
 
     // Moving between queues resets state to pending
-
-    let state: TaskState = input.state !== undefined
-      ? (input.state as TaskState)
-      : existing.state;
-
-    if (statusChanged && input.state != SLUG_DONE) {
+    if (statusChanged && input.state !== SLUG_DONE) {
       input.state = "pending";
     }
+
+    const state: TaskState = input.state !== undefined
+      ? (input.state as TaskState)
+      : existing.state;
 
     if (!title) throw new ValidationError("Title is required");
     if (!isValidQueue(status)) throw new ValidationError("Invalid status");
@@ -133,9 +128,9 @@ export class TaskService {
 
     this.db
       .prepare(
-        "UPDATE tasks SET title = ?, description = ?, plan = ?, execution = ?, status = ?, state = ?, updated_at = datetime('now') WHERE id = ?"
+        "UPDATE tasks SET title = ?, description = ?, status = ?, state = ?, updated_at = datetime('now') WHERE id = ?"
       )
-      .run(title, description, plan, execution, status, state, id);
+      .run(title, description, status, state, id);
 
     return this.findById(id) as Task;
   }
@@ -153,10 +148,10 @@ export class TaskService {
   // ── Messages ────────────────────────────────────────────────────────────────
 
   /**
-   * Adds a message to a task. Only allowed when the task is in 'done' state.
-   * After adding, the task state is set to 'add_message' for the worker to pick up.
+   * Adds a user message to a task. Only allowed when the task is in 'done' state.
+   * Transitions the task state to 'add_message' so the worker picks it up.
    */
-  addMessage(taskId: number, content: string): TaskMessage {
+  addUserMessage(taskId: number, content: string): TaskMessage {
     const task = this.findById(taskId);
     if (!task) throw new TaskNotFoundError(taskId);
     if (task.state !== "done") {
@@ -168,9 +163,36 @@ export class TaskService {
 
     const result = this.db
       .prepare(
-        "INSERT INTO task_messages (task_id, content, task_state_at_creation) VALUES (?, ?, ?)"
+        "INSERT INTO task_messages (task_id, role, content, task_state_at_creation) VALUES (?, 'user', ?, ?)"
       )
-      .run(taskId, trimmed, task.state);
+      .run(taskId, trimmed, task.status);
+
+    // Transition to add_message so the worker picks this up
+    this.db
+      .prepare("UPDATE tasks SET state = 'add_message', updated_at = datetime('now') WHERE id = ?")
+      .run(taskId);
+
+    return this.db
+      .prepare("SELECT * FROM task_messages WHERE id = ?")
+      .get(result.lastInsertRowid) as unknown as TaskMessage;
+  }
+
+  /**
+   * Adds an agent response message. No state restrictions — called by the worker.
+   * @param taskStatus The queue/phase slug (e.g. 'planning', 'development') at the time the message is added.
+   */
+  addAgentMessage(taskId: number, content: string, taskStatus: string): TaskMessage {
+    const task = this.findById(taskId);
+    if (!task) throw new TaskNotFoundError(taskId);
+
+    const trimmed = content?.trim();
+    if (!trimmed) throw new ValidationError("Message content is required");
+
+    const result = this.db
+      .prepare(
+        "INSERT INTO task_messages (task_id, role, content, task_state_at_creation) VALUES (?, 'agent', ?, ?)"
+      )
+      .run(taskId, trimmed, taskStatus);
 
     return this.db
       .prepare("SELECT * FROM task_messages WHERE id = ?")

@@ -8,6 +8,7 @@ const log = logger.child({ module: "TaskWorker" });
 
 const PROCESSABLE_STATUSES = [SLUG_PLANNING, SLUG_DEVELOPMENT] as const;
 const POOL_INTERVAL_MS = 1000;
+
 export class TaskWorker {
   private intervalId: ReturnType<typeof setInterval> | null = null;
   private readonly processing = new Map<string, number>(); // status → taskId
@@ -79,15 +80,17 @@ export class TaskWorker {
         const caller = await this.agentPool.get(task.agent_id);
         log.info({ taskId: task.id, agentId: task.agent_id, status }, "Calling agent");
 
-        if (status === SLUG_PLANNING) {
-          const plan = await caller.planTask(task);
-          this.service.update(task.id, { state: "done", plan });
-        } else {
-          const execution = await caller.executeTask(task);
-          this.service.update(task.id, { state: "done", execution });
-        }
+        const messages = 
+          this.service.listMessages(task.id).map(msg => msg.content);
+        const response = status === SLUG_PLANNING
+          ? await caller.planTask(task)
+          : await caller.executeTask(task, messages);
+        
+        log.info({ taskId: task.id, agentId: task.agent_id, status }, "Agent responded, saving message");
+        this.service.addAgentMessage(task.id, response, status);
       }
 
+      this.service.update(task.id, { state: "done" });
       log.info({ taskId: task.id, status }, "Task completed");
     } catch (err: unknown) {
       this.service.update(task.id, { state: "failed" });
@@ -109,13 +112,8 @@ export class TaskWorker {
         const caller = await this.agentPool.get(task.agent_id);
         log.info({ taskId: task.id, agentId: task.agent_id, status }, "Calling agent for message revision");
 
-        if (status === SLUG_PLANNING) {
-          const response = await caller.sendMessage(task, message?.content ?? "");
-          this.service.addMessage(task.id, response);
-        } else {
-          const response = await caller.sendMessage(task, message?.content ?? "");
-          this.service.addMessage(task.id, response);
-        }
+        const response = await caller.sendMessage(task, message?.content ?? "");
+        this.service.addAgentMessage(task.id, response, status);
       }
       
       this.service.update(task.id, { state: "done" });
