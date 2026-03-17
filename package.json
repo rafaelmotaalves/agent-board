@@ -1,6 +1,6 @@
 {
   "name": "@rafaelmotaalves/agent-board",
-  "version": "0.1.0",
+  "version": "0.1.2",
   "publishConfig": {
     "registry": "https://npm.pkg.github.com"
   },
@@ -13,7 +13,8 @@
     "public",
     "next.config.ts",
     "tsconfig.json",
-    "postcss.config.mjs"
+    "postcss.config.mjs",
+    ".next"
   ],
   "scripts": {
     "dev": "next dev",
