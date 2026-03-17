@@ -8,12 +8,11 @@ interface TaskCardProps {
   task: Task;
   queue: Queue;
   assignedAgent?: Agent;
-  onApprove: (task: Task, nextQueue: Queue) => void;
   onDelete: (task: Task) => void;
   onClick: (task: Task) => void;
 }
 
-export default function TaskCard({ task, queue, assignedAgent, onApprove, onDelete, onClick }: TaskCardProps) {
+export default function TaskCard({ task, queue, assignedAgent, onDelete, onClick }: TaskCardProps) {
   const nextQueue = getNextQueue(queue.slug);
 
   return (
@@ -47,14 +46,6 @@ export default function TaskCard({ task, queue, assignedAgent, onApprove, onDele
             <span className="flex items-center gap-1 text-xs text-blue-500 dark:text-blue-400">
               <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
             </span>
-          )}
-          {nextQueue && task.state === "done" && (
-            <button
-              onClick={(e) => { e.stopPropagation(); onApprove(task, nextQueue); }}
-              className="cursor-pointer rounded bg-green-600 px-2.5 py-1 text-xs font-medium text-white transition-colors hover:bg-green-700"
-            >
-              Approve
-            </button>
           )}
           <button
             onClick={(e) => { e.stopPropagation(); onDelete(task); }}
