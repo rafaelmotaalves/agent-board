@@ -1,0 +1,52 @@
+name: Build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  checks: write
+  pull-requests: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Test
+        id: tests
+        continue-on-error: true
+        run: bun test --reporter=default --reporter=junit --reporter-outfile=./junit.xml
+
+      - name: Test Report
+        uses: ctrf-io/github-test-reporter@v1
+        if: always()
+        with:
+          report-path: ./junit.xml
+          failed-report: true
+          annotate: true
+          pull-request-report: true
+          github-report: true
+          exit-on-fail: true
+          integrations-config: |
+            {
+              "junit-to-ctrf": {
+                "enabled": true,
+                "action": "convert"
+              }
+            }
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          
+      - name: Build
+        run: bun run build
