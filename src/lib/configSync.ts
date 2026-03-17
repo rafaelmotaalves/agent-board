@@ -62,5 +62,24 @@ export function syncAgentsFromConfig(config: BoardConfig, agentService: AgentSer
     }
   }
 
-  log.info({ created, updated, skipped }, "Config sync complete");
+  // Remove stale config agents no longer in the config file
+  const configAgentNames = new Set(config.agents.map((a) => a.name));
+  const dbConfigAgents = agentService.listBySource("config");
+  let deleted = 0;
+  let deactivated = 0;
+
+  for (const dbAgent of dbConfigAgents) {
+    if (!configAgentNames.has(dbAgent.name)) {
+      const result = agentService.removeConfigAgent(dbAgent.id);
+      if (result === "deleted") {
+        log.info({ agent: dbAgent.name }, "Deleted stale config agent");
+        deleted++;
+      } else {
+        log.info({ agent: dbAgent.name }, "Deactivated config agent (has active tasks, source → user)");
+        deactivated++;
+      }
+    }
+  }
+
+  log.info({ created, updated, skipped, deleted, deactivated }, "Config sync complete");
 }
