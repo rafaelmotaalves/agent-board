@@ -253,9 +253,6 @@ export class TaskService {
     return result.changes;
   }
 
-  reset(): void {
-    this.db.prepare("DELETE FROM tasks").run();
-  }
 
   // ── Messages ────────────────────────────────────────────────────────────────
 
