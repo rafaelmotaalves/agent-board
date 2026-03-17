@@ -18,6 +18,15 @@ import path from "node:path";
 import fs from "node:fs";
 import { STREAMING_DIR, ensureDataDir } from "@/lib/paths";
 
+/** Interface for streaming store operations used by TaskWorker. */
+export interface StreamingStore {
+  initStreamingFile(messageId: number): void;
+  appendStreamingChunk(messageId: number, chunk: string): void;
+  finalizeStreamingFile(messageId: number): Promise<void>;
+  deleteStreamingFile(messageId: number): void;
+  cleanupAllStreamingFiles(): void;
+}
+
 /** Open write streams keyed by messageId. */
 const openStreams = new Map<number, fs.WriteStream>();
 
@@ -130,3 +139,12 @@ export function cleanupAllStreamingFiles(): void {
     // ignore
   }
 }
+
+/** The default streaming store implementation backed by the real filesystem. */
+export const defaultStreamingStore: StreamingStore = {
+  initStreamingFile,
+  appendStreamingChunk,
+  finalizeStreamingFile,
+  deleteStreamingFile,
+  cleanupAllStreamingFiles,
+};

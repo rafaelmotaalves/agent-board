@@ -1,22 +1,20 @@
-import { describe, it, expect, beforeEach, afterEach, jest, mock } from "bun:test";
+import { describe, it, expect, beforeEach, afterEach, jest } from "bun:test";
 import { Database } from "bun:sqlite";
 import { TaskService } from "@/lib/taskService";
 import { TaskWorker } from "@/lib/worker";
 import type { AgentPool } from "@/lib/agents";
 import type { IAgentCaller } from "@/lib/agents";
 import type { AgentOptions } from "@/lib/types";
+import type { StreamingStore } from "@/lib/streamingStore";
 
-// Mock the streaming store so tests don't perform real file I/O
-mock.module("@/lib/streamingStore", () => ({
+/** No-op streaming store for tests — avoids real file I/O. */
+const noopStreamingStore: StreamingStore = {
   initStreamingFile: () => {},
   appendStreamingChunk: () => {},
   finalizeStreamingFile: () => Promise.resolve(),
   deleteStreamingFile: () => {},
   cleanupAllStreamingFiles: () => {},
-  streamingFileExists: () => false,
-  getStreamingFilePath: () => "",
-  readStreamingContent: () => null,
-}));
+};
 
 const AGENT_DELAY_MS = 10000;
 
@@ -130,7 +128,7 @@ describe("TaskWorker", () => {
   beforeEach(() => {
     jest.useFakeTimers();
     service = new TaskService(createDb());
-    worker = new TaskWorker(service, createMockAgentPool());
+    worker = new TaskWorker(service, createMockAgentPool(), noopStreamingStore);
   });
 
   afterEach(() => {
@@ -347,7 +345,7 @@ describe("TaskWorker", () => {
       // Insert agent with parallel_planning enabled
       db.exec("INSERT INTO agents (id, name, port, options) VALUES (2, 'parallel-agent', 9998, '{\"parallel_planning\":true}')");
       parallelService = new TaskService(db);
-      parallelWorker = new TaskWorker(parallelService, createMockAgentPool({ parallel_planning: true }));
+      parallelWorker = new TaskWorker(parallelService, createMockAgentPool({ parallel_planning: true }), noopStreamingStore);
     });
 
     afterEach(() => {
@@ -392,7 +390,7 @@ describe("TaskWorker", () => {
 
   describe("error handling", () => {
     it("marks a planning task as failed when the agent throws", async () => {
-      const failWorker = new TaskWorker(service, createFailingAgentPool("something went wrong"));
+      const failWorker = new TaskWorker(service, createFailingAgentPool("something went wrong"), noopStreamingStore);
       const task = service.create({ title: "Error task", agent_id: 1 });
 
       failWorker.tick();
@@ -410,7 +408,7 @@ describe("TaskWorker", () => {
     });
 
     it("marks a development task as failed when the agent throws", async () => {
-      const failWorker = new TaskWorker(service, createFailingAgentPool("dev error"));
+      const failWorker = new TaskWorker(service, createFailingAgentPool("dev error"), noopStreamingStore);
       const task = service.create({ title: "Dev error task", agent_id: 1 });
       service.update(task.id, { state: "done" });
       service.update(task.id, { status: "development" });
@@ -429,7 +427,7 @@ describe("TaskWorker", () => {
     });
 
     it("marks an add_message task as failed when the agent throws", async () => {
-      const failWorker = new TaskWorker(service, createFailingAgentPool("sendMessage failed"));
+      const failWorker = new TaskWorker(service, createFailingAgentPool("sendMessage failed"), noopStreamingStore);
       const task = service.create({ title: "Msg error task", agent_id: 1 });
       service.update(task.id, { state: "done" });
       service.addUserMessage(task.id, "Please revise");
@@ -447,7 +445,7 @@ describe("TaskWorker", () => {
     });
 
     it("cleans up empty streaming message on failure so retries don't leave duplicates", async () => {
-      const failWorker = new TaskWorker(service, createFailingAgentPool("agent crashed"));
+      const failWorker = new TaskWorker(service, createFailingAgentPool("agent crashed"), noopStreamingStore);
       const task = service.create({ title: "Retry task", agent_id: 1 });
 
       // First attempt — agent fails, should clean up the empty streaming message
