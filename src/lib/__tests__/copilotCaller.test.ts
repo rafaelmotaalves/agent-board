@@ -1,4 +1,4 @@
-import { describe, it, expect, mock } from "bun:test";
+import { describe, it, expect } from "bun:test";
 import { logAndDenyWrites, createPermissionHandler } from "../agents/copilotCaller";
 import { approveAll } from "@github/copilot-sdk";
 

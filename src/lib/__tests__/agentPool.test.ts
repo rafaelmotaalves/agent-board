@@ -1,7 +1,6 @@
-import { describe, it, expect, beforeEach, mock } from "bun:test";
+import { describe, it, expect, beforeEach } from "bun:test";
 import { AgentPool } from "@/lib/agents/agentPool";
 import { AgentService } from "@/lib/agents/agentService";
-import type { Agent } from "@/lib/types";
 import { Database } from "bun:sqlite";
 
 function createDb(): Database {

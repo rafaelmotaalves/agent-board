@@ -1,5 +1,3 @@
-import { readFile, writeFile, mkdir } from "node:fs/promises";
-import { dirname } from "node:path";
 import { spawn, type Subprocess, FileSink } from "bun";
 import { ClientSideConnection, ndJsonStream, PROTOCOL_VERSION } from "@agentclientprotocol/sdk";
 import type { Agent, Client, RequestPermissionRequest, SessionId } from "@agentclientprotocol/sdk";
@@ -8,7 +6,6 @@ import { SLUG_PLANNING } from "../queues";
 import { Task } from "../types";
 import logger from "../logger";
 import { PLAN_SYSTEM_PROMPT, EXECUTE_SYSTEM_PROMPT } from "./const";
-import { log } from "node:console";
 
 interface SessionState {
     type: "planning" | "execution";

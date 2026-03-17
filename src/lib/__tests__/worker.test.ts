@@ -449,8 +449,8 @@ describe("TaskWorker", () => {
     });
 
     it("does not pick up multiple planning tasks when only parallel_development is enabled", async () => {
-      const task1 = parallelDevService.create({ title: "Plan 1", agent_id: 3 });
-      const task2 = parallelDevService.create({ title: "Plan 2", agent_id: 3 });
+      const _task1 = parallelDevService.create({ title: "Plan 1", agent_id: 3 });
+      const _task2 = parallelDevService.create({ title: "Plan 2", agent_id: 3 });
 
       parallelDevWorker.tick();
       await flushMicrotasks();
