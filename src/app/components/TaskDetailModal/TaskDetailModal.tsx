@@ -140,7 +140,7 @@ export default function TaskDetailModal({ task, agents, onClose, onApprove, onDe
         onClose={onClose}
       />
       {task.state === "failed" && task.failure_reason && (
-        <div className="mx-5 mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/30 dark:text-red-300">
+        <div className="mx-5 mt-4 max-h-28 shrink overflow-y-auto rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-900/30 dark:text-red-300">
           <p className="font-medium">Task failed</p>
           <p className="mt-1 whitespace-pre-wrap">{task.failure_reason}</p>
         </div>

@@ -18,10 +18,10 @@ export default function TaskMetadata({ task, queue, agents }: TaskMetadataProps)
   const isActive = task.active_since !== null;
 
   return (
-    <div className="flex-shrink-0 px-5 py-4">
+    <div className="min-h-0 shrink px-5 py-4 overflow-y-auto">
       <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">{task.title}</h2>
       {task.description && (
-        <p className="mt-1.5 text-sm text-zinc-600 dark:text-zinc-400 whitespace-pre-wrap">{task.description}</p>
+        <p className="mt-1.5 max-h-20 overflow-y-auto text-sm text-zinc-600 dark:text-zinc-400 whitespace-pre-wrap">{task.description}</p>
       )}
       <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2 text-xs text-zinc-500 dark:text-zinc-400">
         <div>
