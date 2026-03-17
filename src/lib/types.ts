@@ -44,7 +44,7 @@ export interface Agent {
   port: number | null;
   type: AgentType;
   command: string | null;
-  folder: string | null;
+  folder: string;
   options: AgentOptions;
   created_at: string;
 }
@@ -66,6 +66,7 @@ export interface ToolCall {
   task_id: number;
   tool_call_id: string | null;
   tool_name: string;
+  kind: string | null;
   input: string | null;
   output: string | null;
   status: "running" | "completed" | "failed";

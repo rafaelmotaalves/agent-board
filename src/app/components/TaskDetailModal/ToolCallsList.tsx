@@ -49,7 +49,7 @@ function ToolCallCard({ toolCall }: { toolCall: ToolCall }) {
     <div className="rounded-lg border border-zinc-200 bg-white px-3 py-2 dark:border-zinc-700 dark:bg-zinc-800/50">
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
-          <ToolCallIcon toolName={toolCall.tool_name} className="h-3.5 w-3.5 flex-shrink-0 text-zinc-400" />
+          <ToolCallIcon kind={toolCall.kind} className="h-3.5 w-3.5 flex-shrink-0 text-zinc-400" />
           <span className="truncate text-sm font-medium text-zinc-800 dark:text-zinc-100">
             {toolCall.tool_name}
           </span>

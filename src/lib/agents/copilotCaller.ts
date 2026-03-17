@@ -26,7 +26,7 @@ export class CopilotCaller implements IAgentCaller {
     private planningSessions: Map<number, CopilotSession>;
     private executionSessions: Map<number, CopilotSession>;
     
-    constructor(port: number, private readonly folder?: string) 
+    constructor(port: number, private readonly folder: string) 
     {
         this.client = new CopilotClient({ 
             cliUrl: `${LOCALHOST}:${port}`,
@@ -43,7 +43,7 @@ export class CopilotCaller implements IAgentCaller {
         const session = await this.client.createSession({ 
             onPermissionRequest: logAndDenyWrites,
             streaming: true,
-            ...(this.folder ? { workingDirectory: this.folder, configDir: this.folder } : {}),
+            workingDirectory: this.folder, configDir: this.folder,
             systemMessage: {
                 content: PLAN_SYSTEM_PROMPT
             }
@@ -60,7 +60,7 @@ export class CopilotCaller implements IAgentCaller {
         const session = await this.client.createSession({ 
             onPermissionRequest: logAndApprove,
             streaming: true,
-            ...(this.folder ? { workingDirectory: this.folder, configDir: this.folder } : {}),
+            workingDirectory: this.folder, configDir: this.folder,
             systemMessage: {
                 content: EXECUTE_SYSTEM_PROMPT
             }

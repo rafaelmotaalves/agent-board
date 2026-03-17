@@ -1,15 +1,14 @@
 import { Database } from "bun:sqlite";
-import path from 'node:path';
 import type { Task, TaskState, Agent, AgentOptions, AgentType, TaskMessage, ToolCall } from "@/lib/types";
 export type { Task, TaskState, Agent, AgentOptions, AgentType, TaskMessage, ToolCall };
 export { isValidState, isValidAgentType, AGENT_TYPES, DEFAULT_AGENT_TYPE } from "@/lib/types";
-
-const DB_PATH = path.join(process.cwd(), "agent-board.db");
+import { DB_PATH, ensureDataDir } from "@/lib/paths";
 
 let _db: Database | null = null;
 
 export function getDb(): Database {
   if (!_db) {
+    ensureDataDir();
     _db = new Database(DB_PATH);
     _db.exec("PRAGMA journal_mode = WAL");
     _db.exec("PRAGMA foreign_keys = ON");
@@ -20,7 +19,7 @@ export function getDb(): Database {
         port INTEGER DEFAULT NULL,
         type TEXT NOT NULL DEFAULT 'copilot_cli_sdk',
         command TEXT DEFAULT NULL,
-        folder TEXT DEFAULT NULL,
+        folder TEXT NOT NULL,
         options TEXT NOT NULL DEFAULT '{}',
         created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now'))
       )
@@ -59,6 +58,7 @@ export function getDb(): Database {
         task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
         tool_call_id TEXT,
         tool_name TEXT NOT NULL,
+        kind TEXT DEFAULT NULL,
         input TEXT,
         output TEXT DEFAULT NULL,
         status TEXT NOT NULL DEFAULT 'running',

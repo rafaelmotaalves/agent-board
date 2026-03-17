@@ -24,7 +24,7 @@ interface DirectoryPickerProps {
 export default function DirectoryPicker({
   value,
   onChange,
-  placeholder = "Working directory (optional)",
+  placeholder = "Working directory",
   className = "",
 }: DirectoryPickerProps) {
   const [isOpen, setIsOpen] = useState(false);

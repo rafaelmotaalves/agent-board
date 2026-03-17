@@ -39,10 +39,10 @@ export class AgentPool {
 function createCallerForType(agent: Agent): IAgentCaller {
     switch (agent.type) {
         case "copilot_cli_sdk":
-            return new CopilotCaller(agent.port!, agent.folder ?? undefined);
+            return new CopilotCaller(agent.port!, agent.folder);
         case "acp":
             if (!agent.command) throw new Error(`ACP agent "${agent.name}" is missing a command`);
-            return new AcpCaller(agent.command, agent.folder ?? undefined);
+            return new AcpCaller(agent.command, agent.folder);
         default:
             throw new Error(`Unsupported agent type: ${agent.type satisfies never}`);
     }

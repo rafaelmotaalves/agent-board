@@ -11,9 +11,12 @@ interface BoardColumnProps {
   onDelete: (task: Task) => void;
   onClick: (task: Task) => void;
   onCreateTask?: (title: string, description: string, agentId: number) => Promise<void>;
+  onArchive?: (task: Task) => void;
+  onUnarchive?: (task: Task) => void;
+  onArchiveAll?: () => void;
 }
 
-export default function BoardColumn({ queue, tasks, agents, onDelete, onClick, onCreateTask }: BoardColumnProps) {
+export default function BoardColumn({ queue, tasks, agents, onDelete, onClick, onCreateTask, onArchive, onUnarchive, onArchiveAll }: BoardColumnProps) {
   const reviewCount = tasks.filter((t) => isReadyForReview(t.state, queue.slug)).length;
 
   return (
@@ -45,9 +48,22 @@ export default function BoardColumn({ queue, tasks, agents, onDelete, onClick, o
             assignedAgent={agents.find((a) => a.id === task.agent_id)}
             onDelete={onDelete}
             onClick={onClick}
+            onArchive={onArchive}
+            onUnarchive={onUnarchive}
           />
         ))}
       </div>
+
+      {onArchiveAll && tasks.some((t) => t.archived_at === null) && (
+        <div className="mt-3 shrink-0">
+          <button
+            onClick={onArchiveAll}
+            className="w-full cursor-pointer rounded-lg border border-amber-300 px-3 py-1.5 text-xs font-medium text-amber-600 transition-colors hover:bg-amber-50 dark:border-amber-700 dark:text-amber-400 dark:hover:bg-amber-900/20"
+          >
+            Archive all
+          </button>
+        </div>
+      )}
 
       {onCreateTask && (
         <div className="mt-3 shrink-0">

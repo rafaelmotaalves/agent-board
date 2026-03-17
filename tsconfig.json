@@ -30,5 +30,6 @@
     ".next/dev/types/**/*.ts",
     "**/*.mts"
   ],
+  "types": ["bun-types"],
   "exclude": ["node_modules", "playwright.config.ts"]
 }

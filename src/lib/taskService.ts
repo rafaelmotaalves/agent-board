@@ -1,4 +1,4 @@
-import { Database } from "bun:sqlite";
+import { Database, SQLQueryBindings } from "bun:sqlite";
 import { Task, TaskState, isValidState, TaskMessage, ToolCall } from "@/lib/types";
 import { isValidQueue, SLUG_DONE } from "@/lib/queues";
 import { getDb } from "./db";
@@ -369,15 +369,16 @@ export class TaskService {
     input: string | null,
     taskStatus: string,
     toolCallId?: string,
+    kind?: string,
   ): ToolCall {
     const task = this.findById(taskId);
     if (!task) throw new TaskNotFoundError(taskId);
 
     const result = this.db
       .prepare(
-        "INSERT INTO task_tool_calls (task_id, tool_call_id, tool_name, input, task_state_at_creation) VALUES (?, ?, ?, ?, ?)"
+        "INSERT INTO task_tool_calls (task_id, tool_call_id, tool_name, kind, input, task_state_at_creation) VALUES (?, ?, ?, ?, ?, ?)"
       )
-      .run(taskId, toolCallId ?? null, toolName, input, taskStatus);
+      .run(taskId, toolCallId ?? null, toolName, kind ?? null, input, taskStatus);
 
     return this.db
       .prepare("SELECT * FROM task_tool_calls WHERE id = ?")
@@ -386,10 +387,10 @@ export class TaskService {
 
   updateToolCall(
     id: number,
-    updates: { output?: string; status?: "running" | "completed" | "failed"; completed_at?: string },
+    updates: { output?: string; status?: "running" | "completed" | "failed"; completed_at?: string; kind?: string },
   ): void {
     const parts: string[] = [];
-    const values: unknown[] = [];
+    const values: SQLQueryBindings[] = [];
 
     if (updates.output !== undefined) {
       parts.push("output = ?");
@@ -402,6 +403,10 @@ export class TaskService {
     if (updates.completed_at !== undefined) {
       parts.push("completed_at = ?");
       values.push(updates.completed_at);
+    }
+    if (updates.kind !== undefined) {
+      parts.push("kind = ?");
+      values.push(updates.kind);
     }
 
     if (parts.length === 0) return;

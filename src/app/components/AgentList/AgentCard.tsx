@@ -30,11 +30,9 @@ export default function AgentCard({ agent, onDelete }: AgentCardProps) {
             </span>
           )}
         </p>
-        {agent.folder && (
-          <p className="truncate text-[10px] text-zinc-400 dark:text-zinc-500" title={agent.folder}>
-            📁 {agent.folder}
-          </p>
-        )}
+        <p className="truncate text-[10px] text-zinc-400 dark:text-zinc-500" title={agent.folder}>
+          📁 {agent.folder}
+        </p>
       </div>
       <button
         onClick={() => onDelete(agent)}

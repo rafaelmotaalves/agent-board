@@ -7,7 +7,7 @@ import ToggleSwitch from "@/app/components/ToggleSwitch";
 import DirectoryPicker from "@/app/components/DirectoryPicker";
 
 interface NewAgentFormProps {
-  onSubmit: (name: string, port: number | undefined, type: AgentType, command?: string, folder?: string, options?: AgentOptions) => Promise<void>;
+  onSubmit: (name: string, port: number | undefined, type: AgentType, command: string | undefined, folder: string, options?: AgentOptions) => Promise<void>;
 }
 
 export default function NewAgentForm({ onSubmit }: NewAgentFormProps) {
@@ -49,11 +49,16 @@ export default function NewAgentForm({ onSubmit }: NewAgentFormProps) {
       }
     }
 
+    const folderValue = folder.trim();
+    if (!folderValue) {
+      setError("Working directory is required");
+      return;
+    }
+
     setSubmitting(true);
     try {
       const options: AgentOptions = {};
       if (parallelPlanning) options.parallel_planning = true;
-      const folderValue = folder.trim() || undefined;
       await onSubmit(name.trim(), portNum, type, cmd, folderValue, options);
       setName("");
       setPort("");

@@ -1,5 +1,5 @@
 import type { Agent } from "@/lib/types";
-import { ArchiveIcon, Volume2, VolumeOff } from "lucide-react";
+import { ArchiveIcon, Bell, BellOff } from "lucide-react";
 
 interface BoardHeaderProps {
   agents: Agent[];
@@ -7,11 +7,11 @@ interface BoardHeaderProps {
   onToggleAgents: () => void;
   showArchived: boolean;
   onToggleArchived: () => void;
-  soundEnabled: boolean;
-  onToggleSound: () => void;
+  notificationsEnabled: boolean;
+  onToggleNotifications: () => void;
 }
 
-export default function BoardHeader({ agents, showAgents, onToggleAgents, showArchived, onToggleArchived, soundEnabled, onToggleSound }: BoardHeaderProps) {
+export default function BoardHeader({ agents, showAgents, onToggleAgents, showArchived, onToggleArchived, notificationsEnabled, onToggleNotifications }: BoardHeaderProps) {
   return (
     <header className="border-b border-zinc-200 px-6 py-4 dark:border-zinc-800">
       <div className="flex items-center justify-between">
@@ -22,16 +22,16 @@ export default function BoardHeader({ agents, showAgents, onToggleAgents, showAr
         </div>
         <div className="flex items-center gap-3">
           <button
-            onClick={onToggleSound}
+            onClick={onToggleNotifications}
             className={`cursor-pointer flex items-center gap-1.5 rounded-lg px-4 py-2 text-sm font-medium transition-colors ${
-              soundEnabled
+              notificationsEnabled
                 ? "bg-indigo-100 text-indigo-700 hover:bg-indigo-200 dark:bg-indigo-900/30 dark:text-indigo-400 dark:hover:bg-indigo-900/50"
                 : "border border-zinc-300 text-zinc-600 hover:border-zinc-400 hover:text-zinc-900 dark:border-zinc-700 dark:text-zinc-400 dark:hover:border-zinc-500 dark:hover:text-zinc-100"
             }`}
-            title={soundEnabled ? "Disable review sound" : "Enable review sound"}
+            title={notificationsEnabled ? "Disable notifications" : "Enable notifications"}
           >
-            {soundEnabled ? <Volume2 className="h-4 w-4" /> : <VolumeOff className="h-4 w-4" />}
-            {soundEnabled ? "Sound on" : "Sound off"}
+            {notificationsEnabled ? <Bell className="h-4 w-4" /> : <BellOff className="h-4 w-4" />}
+            {notificationsEnabled ? "Notifications on" : "Notifications off"}
           </button>
           <button
             onClick={onToggleArchived}
