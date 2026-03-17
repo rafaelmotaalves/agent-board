@@ -1,15 +1,17 @@
 "use client";
 
 import { useState } from "react";
+import type { AgentOptions } from "@/lib/types";
 
 interface NewAgentFormProps {
-  onSubmit: (name: string, port: number) => Promise<void>;
+  onSubmit: (name: string, port: number, options?: AgentOptions) => Promise<void>;
 }
 
 export default function NewAgentForm({ onSubmit }: NewAgentFormProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [name, setName] = useState("");
   const [port, setPort] = useState("");
+  const [parallelPlanning, setParallelPlanning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
@@ -29,9 +31,12 @@ export default function NewAgentForm({ onSubmit }: NewAgentFormProps) {
 
     setSubmitting(true);
     try {
-      await onSubmit(name.trim(), portNum);
+      const options: AgentOptions = {};
+      if (parallelPlanning) options.parallel_planning = true;
+      await onSubmit(name.trim(), portNum, options);
       setName("");
       setPort("");
+      setParallelPlanning(false);
       setIsOpen(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create agent");
@@ -44,6 +49,7 @@ export default function NewAgentForm({ onSubmit }: NewAgentFormProps) {
     setIsOpen(false);
     setName("");
     setPort("");
+    setParallelPlanning(false);
     setError(null);
   }
 
@@ -80,6 +86,15 @@ export default function NewAgentForm({ onSubmit }: NewAgentFormProps) {
         max={65535}
         className="mt-2 w-full rounded border border-zinc-200 px-3 py-2 text-sm outline-none focus:border-blue-500 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100"
       />
+      <label className="mt-2 flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-300">
+        <input
+          type="checkbox"
+          checked={parallelPlanning}
+          onChange={(e) => setParallelPlanning(e.target.checked)}
+          className="rounded border-zinc-300 dark:border-zinc-600"
+        />
+        Parallel planning
+      </label>
       {error && <p className="mt-1 text-xs text-red-500">{error}</p>}
       <div className="mt-2 flex gap-2">
         <button

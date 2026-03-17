@@ -14,7 +14,11 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   const body = await request.json();
   try {
-    const agent = getService().create({ name: body.name, port: body.port });
+    const agent = getService().create({
+      name: body.name,
+      port: body.port,
+      options: body.options,
+    });
     return NextResponse.json(agent, { status: 201 });
   } catch (e) {
     if (e instanceof AgentValidationError) {

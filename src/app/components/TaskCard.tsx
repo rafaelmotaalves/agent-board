@@ -2,7 +2,7 @@
 
 import type { Task, Agent } from "@/lib/types";
 import { Queue, getNextQueue } from "@/lib/queues";
-import { Loader2, TrashIcon } from "lucide-react";
+import { Loader2, TrashIcon, AlertCircle } from "lucide-react";
 
 interface TaskCardProps {
   task: Task;
@@ -17,7 +17,11 @@ export default function TaskCard({ task, queue, assignedAgent, onDelete, onClick
 
   return (
     <div
-      className="cursor-pointer rounded-lg border border-zinc-200 bg-white p-3 shadow-sm transition-shadow hover:shadow-md dark:border-zinc-700 dark:bg-zinc-800"
+      className={`cursor-pointer rounded-lg border bg-white p-3 shadow-sm transition-shadow hover:shadow-md dark:bg-zinc-800 ${
+        task.state === "failed"
+          ? "border-red-400 border-l-4 dark:border-red-500"
+          : "border-zinc-200 dark:border-zinc-700"
+      }`}
       onClick={() => onClick(task)}
       role="button"
       tabIndex={0}
@@ -45,6 +49,12 @@ export default function TaskCard({ task, queue, assignedAgent, onDelete, onClick
           {nextQueue && task.state === "in_progress" && (
             <span className="flex items-center gap-1 text-xs text-blue-500 dark:text-blue-400">
               <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
+            </span>
+          )}
+          {task.state === "failed" && (
+            <span className="flex items-center gap-1 text-xs text-red-500 dark:text-red-400" title={task.failure_reason ?? "Task failed"}>
+              <AlertCircle className="h-3.5 w-3.5" aria-hidden="true" />
+              <span>Failed</span>
             </span>
           )}
           <button

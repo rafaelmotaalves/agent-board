@@ -1,4 +1,4 @@
-import type { Task, Agent, TaskMessage } from "@/lib/types";
+import type { Task, Agent, AgentOptions, TaskMessage } from "@/lib/types";
 
 export async function fetchTasks(): Promise<Task[]> {
   const res = await fetch("/api/tasks");
@@ -9,12 +9,13 @@ export async function fetchTasks(): Promise<Task[]> {
 export async function createTask(
   title: string,
   description: string,
-  agentId?: number | null
+  agentId?: number | null,
+  status?: string
 ): Promise<Task> {
   const res = await fetch("/api/tasks", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ title, description, agent_id: agentId ?? null }),
+    body: JSON.stringify({ title, description, agent_id: agentId ?? null, status }),
   });
   if (!res.ok) throw new Error("Failed to create task");
   return res.json();
@@ -37,21 +38,50 @@ export async function deleteTask(id: number): Promise<void> {
   if (!res.ok) throw new Error("Failed to delete task");
 }
 
+export async function retryTask(id: number): Promise<void> {
+  const res = await fetch(`/api/tasks/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ state: "pending", failure_reason: null }),
+  });
+  if (!res.ok) throw new Error("Failed to retry task");
+}
+
 export async function fetchAgents(): Promise<Agent[]> {
   const res = await fetch("/api/agents");
   if (!res.ok) throw new Error("Failed to fetch agents");
   return res.json();
 }
 
-export async function createAgent(name: string, port: number): Promise<Agent> {
+export async function createAgent(
+  name: string,
+  port: number,
+  options?: AgentOptions
+): Promise<Agent> {
   const res = await fetch("/api/agents", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ name, port }),
+    body: JSON.stringify({ name, port, options }),
   });
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
     throw new Error(data.error ?? "Failed to create agent");
+  }
+  return res.json();
+}
+
+export async function updateAgent(
+  id: number,
+  updates: { name?: string; port?: number; options?: AgentOptions }
+): Promise<Agent> {
+  const res = await fetch(`/api/agents/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(updates),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error ?? "Failed to update agent");
   }
   return res.json();
 }

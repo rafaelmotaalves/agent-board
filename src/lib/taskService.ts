@@ -8,6 +8,8 @@ export interface CreateTaskInput {
   description?: string;
   /** Agent to assign at creation time */
   agent_id?: number | null;
+  /** Queue column to start in (default: 'planning'). Cannot be 'done'. */
+  status?: string;
 }
 
 export interface UpdateTaskInput {
@@ -17,6 +19,8 @@ export interface UpdateTaskInput {
   status?: string;
   /** Per-queue state (pending | in_progress | done) */
   state?: string;
+  /** Error message when task fails */
+  failure_reason?: string | null;
 }
 
 export class TaskNotFoundError extends Error {
@@ -44,11 +48,11 @@ export class TaskService {
     if (status !== undefined) {
       if (!isValidQueue(status)) throw new ValidationError("Invalid status");
       return this.db
-        .prepare("SELECT * FROM tasks WHERE status = ? ORDER BY created_at DESC")
+        .prepare("SELECT * FROM tasks WHERE status = ? ORDER BY created_at ASC")
         .all(status) as Task[];
     }
     return this.db
-      .prepare("SELECT * FROM tasks ORDER BY created_at DESC")
+      .prepare("SELECT * FROM tasks ORDER BY created_at ASC")
       .all() as Task[];
   }
 
@@ -83,13 +87,17 @@ export class TaskService {
     const title = input.title?.trim();
     if (!title) throw new ValidationError("Title is required");
 
+    const status = input.status ?? "planning";
+    if (!isValidQueue(status)) throw new ValidationError("Invalid status");
+    if (status === SLUG_DONE) throw new ValidationError("Cannot create a task with done status");
+
     const description = (input.description ?? "").trim();
     const agent_id = input.agent_id ?? null;
     const result = this.db
       .prepare(
-        "INSERT INTO tasks (title, description, agent_id, status, state) VALUES (?, ?, ?, 'planning', 'pending')"
+        "INSERT INTO tasks (title, description, agent_id, status, state) VALUES (?, ?, ?, ?, 'pending')"
       )
-      .run(title, description, agent_id);
+      .run(title, description, agent_id, status);
 
     const taskId = result.lastInsertRowid as number;
 
@@ -122,15 +130,25 @@ export class TaskService {
       ? (input.state as TaskState)
       : existing.state;
 
+    // Resolve failure_reason: explicit null clears it, undefined keeps existing
+    const failure_reason = input.failure_reason !== undefined
+      ? input.failure_reason
+      : existing.failure_reason;
+
+    // Set completed_at when task moves to the "done" queue
+    const completed_at = status === SLUG_DONE && existing.status !== SLUG_DONE
+      ? new Date().toISOString()
+      : (status !== SLUG_DONE ? null : existing.completed_at);
+
     if (!title) throw new ValidationError("Title is required");
     if (!isValidQueue(status)) throw new ValidationError("Invalid status");
     if (!isValidState(state)) throw new ValidationError("Invalid state");
 
     this.db
       .prepare(
-        "UPDATE tasks SET title = ?, description = ?, status = ?, state = ?, updated_at = datetime('now') WHERE id = ?"
+        "UPDATE tasks SET title = ?, description = ?, status = ?, state = ?, failure_reason = ?, completed_at = ?, updated_at = datetime('now') WHERE id = ?"
       )
-      .run(title, description, status, state, id);
+      .run(title, description, status, state, failure_reason, completed_at, id);
 
     return this.findById(id) as Task;
   }
@@ -148,14 +166,14 @@ export class TaskService {
   // ── Messages ────────────────────────────────────────────────────────────────
 
   /**
-   * Adds a user message to a task. Only allowed when the task is in 'done' state.
+   * Adds a user message to a task. Only allowed when the task is in 'done' or 'failed' state.
    * Transitions the task state to 'add_message' so the worker picks it up.
    */
   addUserMessage(taskId: number, content: string): TaskMessage {
     const task = this.findById(taskId);
     if (!task) throw new TaskNotFoundError(taskId);
-    if (task.state !== "done") {
-      throw new ValidationError("Messages can only be added when the task is in 'done' state");
+    if (task.state !== "done" && task.state !== "failed") {
+      throw new ValidationError("Messages can only be added when the task is in 'done' or 'failed' state");
     }
 
     const trimmed = content?.trim();
@@ -167,9 +185,9 @@ export class TaskService {
       )
       .run(taskId, trimmed, task.status);
 
-    // Transition to add_message so the worker picks this up
+    // Transition to add_message so the worker picks this up; clear failure_reason
     this.db
-      .prepare("UPDATE tasks SET state = 'add_message', updated_at = datetime('now') WHERE id = ?")
+      .prepare("UPDATE tasks SET state = 'add_message', failure_reason = NULL, updated_at = datetime('now') WHERE id = ?")
       .run(taskId);
 
     return this.db

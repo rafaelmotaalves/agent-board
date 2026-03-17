@@ -4,6 +4,7 @@ import { TaskService } from "@/lib/taskService";
 import { TaskWorker } from "@/lib/worker";
 import type { AgentPool } from "@/lib/agentPool";
 import type { IAgentCaller } from "@/lib/agentCaller";
+import type { AgentOptions } from "@/lib/types";
 
 const AGENT_DELAY_MS = 10000;
 
@@ -18,17 +19,32 @@ function createMockCaller(): IAgentCaller {
 
 /**
  * Mock AgentPool — get() resolves synchronously (via microtask) with a mock caller.
- * This means processTask suspends at `await agentPool.get()` but resumes quickly,
- * then suspends again at `await caller.planTask()` until the fake timer fires.
+ * getAgentOptions() returns configurable options for agent ID 1.
  */
-function createMockAgentPool(): AgentPool {
+function createMockAgentPool(agentOptions?: AgentOptions): AgentPool {
   const caller = createMockCaller();
-  return { get: () => Promise.resolve(caller) } as unknown as AgentPool;
+  return {
+    get: () => Promise.resolve(caller),
+    getAgentOptions: () => agentOptions ?? {},
+  } as unknown as AgentPool;
 }
 
 /** Flush the microtask queue enough times for chained promise resolutions to propagate. */
 async function flushMicrotasks() {
   for (let i = 0; i < 20; i++) await Promise.resolve();
+}
+
+/** Helper: get the single processing task ID for a status, or undefined. */
+function getProcessingId(worker: TaskWorker, status: string): number | undefined {
+  const set = worker.getProcessingTasks().get(status);
+  if (!set || set.size === 0) return undefined;
+  return set.values().next().value;
+}
+
+/** Helper: get all processing task IDs for a status. */
+function getProcessingIds(worker: TaskWorker, status: string): number[] {
+  const set = worker.getProcessingTasks().get(status);
+  return set ? [...set] : [];
 }
 
 function createDb(): Database {
@@ -40,6 +56,7 @@ function createDb(): Database {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL,
       port INTEGER NOT NULL UNIQUE,
+      options TEXT NOT NULL DEFAULT '{}',
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     )
   `);
@@ -110,7 +127,7 @@ describe("TaskWorker", () => {
 
       const updated = service.findById(task.id)!;
       expect(updated.state).toBe("in_progress");
-      expect(worker.getProcessingTasks().get("planning")).toBe(task.id);
+      expect(getProcessingId(worker, "planning")).toBe(task.id);
     });
 
     it("picks up a pending development task and sets it to in_progress", async () => {
@@ -122,7 +139,7 @@ describe("TaskWorker", () => {
 
       const updated = service.findById(task.id)!;
       expect(updated.state).toBe("in_progress");
-      expect(worker.getProcessingTasks().get("development")).toBe(task.id);
+      expect(getProcessingId(worker, "development")).toBe(task.id);
     });
 
     it("does not pick up tasks in the done queue", async () => {
@@ -137,21 +154,21 @@ describe("TaskWorker", () => {
       expect(worker.getProcessingTasks().size).toBe(0);
     });
 
-    it("only picks one task per status at a time", async () => {
+    it("only picks one task per status at a time (no parallel_planning)", async () => {
       service.create({ title: "Plan 1", agent_id: 1 });
       service.create({ title: "Plan 2", agent_id: 1 });
       worker.tick();
       await flushMicrotasks();
 
-      expect(worker.getProcessingTasks().size).toBe(1);
-      const processingId = worker.getProcessingTasks().get("planning")!;
-      const processing = service.findById(processingId)!;
+      const ids = getProcessingIds(worker, "planning");
+      expect(ids).toHaveLength(1);
+      const processing = service.findById(ids[0])!;
       expect(processing.state).toBe("in_progress");
 
       // Second tick should not pick up another planning task
       worker.tick();
       await flushMicrotasks();
-      expect(worker.getProcessingTasks().get("planning")).toBe(processingId);
+      expect(getProcessingIds(worker, "planning")).toEqual(ids);
     });
 
     it("can process planning and development tasks concurrently", async () => {
@@ -165,8 +182,8 @@ describe("TaskWorker", () => {
       await flushMicrotasks();
 
       expect(worker.getProcessingTasks().size).toBe(2);
-      expect(worker.getProcessingTasks().get("planning")).toBe(planTask.id);
-      expect(worker.getProcessingTasks().get("development")).toBe(devTask.id);
+      expect(getProcessingId(worker, "planning")).toBe(planTask.id);
+      expect(getProcessingId(worker, "development")).toBe(devTask.id);
     });
 
     it("does nothing when there are no pending tasks", async () => {
@@ -197,7 +214,7 @@ describe("TaskWorker", () => {
 
       worker.tick();
       await flushMicrotasks();
-      const firstId = worker.getProcessingTasks().get("planning")!;
+      const firstId = getProcessingId(worker, "planning")!;
 
       jest.advanceTimersByTime(AGENT_DELAY_MS);
       await flushMicrotasks();
@@ -205,7 +222,7 @@ describe("TaskWorker", () => {
 
       worker.tick();
       await flushMicrotasks();
-      const secondId = worker.getProcessingTasks().get("planning")!;
+      const secondId = getProcessingId(worker, "planning")!;
       expect(secondId).not.toBe(firstId);
     });
   });
@@ -237,7 +254,7 @@ describe("TaskWorker", () => {
 
       const updated = service.findById(msgTask.id)!;
       expect(updated.state).toBe("in_progress");
-      expect(worker.getProcessingTasks().get("planning")).toBe(msgTask.id);
+      expect(getProcessingId(worker, "planning")).toBe(msgTask.id);
     });
 
     it("sets add_message task to in_progress when picked up", async () => {
@@ -268,4 +285,57 @@ describe("TaskWorker", () => {
       expect(worker.getProcessingTasks().has("planning")).toBe(false);
     });
   });
+
+  describe("parallel planning", () => {
+    let parallelService: TaskService;
+    let parallelWorker: TaskWorker;
+
+    beforeEach(() => {
+      const db = createDb();
+      // Insert agent with parallel_planning enabled
+      db.exec("INSERT INTO agents (id, name, port, options) VALUES (2, 'parallel-agent', 9998, '{\"parallel_planning\":true}')");
+      parallelService = new TaskService(db);
+      parallelWorker = new TaskWorker(parallelService, createMockAgentPool({ parallel_planning: true }));
+    });
+
+    afterEach(() => {
+      parallelWorker.stop();
+    });
+
+    it("picks up multiple planning tasks when parallel_planning is enabled", async () => {
+      const task1 = parallelService.create({ title: "Plan 1", agent_id: 2 });
+      const task2 = parallelService.create({ title: "Plan 2", agent_id: 2 });
+
+      parallelWorker.tick();
+      await flushMicrotasks();
+      // After first tick, one should be picked up
+      expect(getProcessingIds(parallelWorker, "planning").length).toBeGreaterThanOrEqual(1);
+
+      parallelWorker.tick();
+      await flushMicrotasks();
+      // After second tick, both should be picked up
+      const ids = getProcessingIds(parallelWorker, "planning");
+      expect(ids).toHaveLength(2);
+      expect(ids).toContain(task1.id);
+      expect(ids).toContain(task2.id);
+    });
+
+    it("does not pick up multiple development tasks even with parallel_planning", async () => {
+      const task1 = parallelService.create({ title: "Dev 1", agent_id: 2 });
+      parallelService.update(task1.id, { state: "done" });
+      parallelService.update(task1.id, { status: "development" });
+
+      const task2 = parallelService.create({ title: "Dev 2", agent_id: 2 });
+      parallelService.update(task2.id, { state: "done" });
+      parallelService.update(task2.id, { status: "development" });
+
+      parallelWorker.tick();
+      await flushMicrotasks();
+      parallelWorker.tick();
+      await flushMicrotasks();
+
+      expect(getProcessingIds(parallelWorker, "development")).toHaveLength(1);
+    });
+  });
 });
+

@@ -1,7 +1,7 @@
 "use client";
 
 import type { Agent } from "@/lib/types";
-import { X, TrashIcon } from "lucide-react";
+import { TrashIcon } from "lucide-react";
 
 interface AgentCardProps {
   agent: Agent;
@@ -15,7 +15,14 @@ export default function AgentCard({ agent, onDelete }: AgentCardProps) {
         <p className="truncate text-sm font-semibold text-zinc-900 dark:text-zinc-100">
           {agent.name}
         </p>
-        <p className="text-xs text-zinc-500 dark:text-zinc-400">:{agent.port}</p>
+        <p className="text-xs text-zinc-500 dark:text-zinc-400">
+          :{agent.port}
+          {agent.options?.parallel_planning && (
+            <span className="ml-2 inline-flex items-center rounded-full bg-blue-100 px-1.5 py-0.5 text-[10px] font-medium text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
+              parallel
+            </span>
+          )}
+        </p>
       </div>
       <button
         onClick={() => onDelete(agent)}

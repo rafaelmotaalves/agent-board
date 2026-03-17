@@ -26,16 +26,7 @@ bunx playwright test e2e/home.spec.ts  # Run a single E2E file
 - **`e2e/`** — Playwright E2E tests (separate from `src/`)
 
 ## Development Process
-
-When implementing any change, follow this sequence strictly:
-
-1. **Implement the change** — Write the feature or fix in the source code.
-2. **Write unit tests** — Add or update Jest tests in the relevant `__tests__/` directory covering the changed behavior.
-3. **Run unit tests and confirm they pass** — Execute `bun test` (or `bunx jest path/to/file` for a targeted run). Do not proceed until all unit tests pass.
-4. **Write E2E tests** — Add or update Playwright tests in `e2e/` covering the user-facing behavior introduced by the change.
-5. **Run E2E tests and confirm they pass** — Execute `bun run test:e2e`. Do not consider the task complete until all E2E tests pass.
-
-Never skip or reorder these steps. If a test fails, fix the underlying code (or test) before moving on.
+You can focus on implementing the features for now, don't need to worry about implementing tests immediately. Once the main functionality is in place, we can circle back and add tests to ensure everything is working as expected and to prevent regressions in the future.
 
 ## Conventions
 

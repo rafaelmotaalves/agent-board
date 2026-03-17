@@ -1,7 +1,7 @@
 import { AgentService } from "./agentService";
 import { CopilotCaller } from "./copilotCaller";
 import { IAgentCaller } from "./agentCaller";
-import { Agent } from "./types";
+import { Agent, AgentOptions } from "./types";
 
 export type AgentCaller = (...args: unknown[]) => Promise<unknown>;
 
@@ -27,6 +27,12 @@ export class AgentPool {
         const existing = this.agents.get(agentId.toString());
         if (existing) return existing;
         return this.loadAgent(agentId);
+    }
+
+    /** Returns the agent options for the given agent ID, or undefined if not found. */
+    getAgentOptions(agentId: number): AgentOptions | undefined {
+        const agent = this.agentService.findById(agentId);
+        return agent?.options;
     }
 }
 

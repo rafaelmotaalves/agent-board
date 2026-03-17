@@ -1,13 +1,14 @@
 "use client";
 
-import type { Agent } from "@/lib/types";
+import type { Agent, AgentOptions } from "@/lib/types";
 import AgentCard from "./AgentCard";
 import NewAgentForm from "./NewAgentForm";
+import AgentEmptyState from "./AgentEmptyState";
 
 interface AgentListProps {
   agents: Agent[];
   onDelete: (agent: Agent) => void;
-  onSubmit: (name: string, port: number) => Promise<void>;
+  onSubmit: (name: string, port: number, options?: AgentOptions) => Promise<void>;
 }
 
 export default function AgentList({ agents, onDelete, onSubmit }: AgentListProps) {
@@ -24,11 +25,7 @@ export default function AgentList({ agents, onDelete, onSubmit }: AgentListProps
         {agents.map((agent) => (
           <AgentCard key={agent.id} agent={agent} onDelete={onDelete} />
         ))}
-        {agents.length === 0 && (
-          <p className="rounded-lg border border-dashed border-zinc-300 px-3 py-4 text-center text-xs text-zinc-400 dark:border-zinc-700">
-            No agents yet
-          </p>
-        )}
+        {agents.length === 0 && <AgentEmptyState />}
       </div>
 
       <NewAgentForm onSubmit={onSubmit} />

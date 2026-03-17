@@ -9,6 +9,7 @@ function createDb(): Database {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL,
       port INTEGER NOT NULL UNIQUE,
+      options TEXT NOT NULL DEFAULT '{}',
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     )
   `);
@@ -117,6 +118,74 @@ describe("AgentService", () => {
 
     it("returns undefined when not found", () => {
       expect(service.findById(9999)).toBeUndefined();
+    });
+  });
+
+  // ── options ────────────────────────────────────────────────────────────────
+
+  describe("options", () => {
+    it("creates an agent with default empty options", () => {
+      const agent = service.create({ name: "no-opts", port: 7100 });
+      expect(agent.options).toEqual({});
+    });
+
+    it("creates an agent with parallel_planning option", () => {
+      const agent = service.create({
+        name: "parallel",
+        port: 7200,
+        options: { parallel_planning: true },
+      });
+      expect(agent.options).toEqual({ parallel_planning: true });
+    });
+
+    it("persists options through findById", () => {
+      const agent = service.create({
+        name: "persist-opts",
+        port: 7300,
+        options: { parallel_planning: true },
+      });
+      const found = service.findById(agent.id)!;
+      expect(found.options.parallel_planning).toBe(true);
+    });
+
+    it("persists options through list", () => {
+      service.create({
+        name: "list-opts",
+        port: 7400,
+        options: { parallel_planning: true },
+      });
+      const agents = service.list();
+      expect(agents[0].options.parallel_planning).toBe(true);
+    });
+  });
+
+  // ── update ──────────────────────────────────────────────────────────────────
+
+  describe("update", () => {
+    it("updates agent options", () => {
+      const agent = service.create({ name: "upd", port: 8100 });
+      const updated = service.update(agent.id, { options: { parallel_planning: true } });
+      expect(updated.options.parallel_planning).toBe(true);
+    });
+
+    it("updates agent name", () => {
+      const agent = service.create({ name: "old-name", port: 8200 });
+      const updated = service.update(agent.id, { name: "new-name" });
+      expect(updated.name).toBe("new-name");
+    });
+
+    it("throws AgentNotFoundError when updating non-existent agent", () => {
+      expect(() => service.update(999, { name: "nope" })).toThrow(AgentNotFoundError);
+    });
+
+    it("preserves existing options when not provided in update", () => {
+      const agent = service.create({
+        name: "keep-opts",
+        port: 8300,
+        options: { parallel_planning: true },
+      });
+      const updated = service.update(agent.id, { name: "renamed" });
+      expect(updated.options.parallel_planning).toBe(true);
     });
   });
 });

@@ -65,6 +65,25 @@ describe("TaskService", () => {
       expect(() => service.create({ title: "" })).toThrow(ValidationError);
       expect(() => service.create({ title: "   " })).toThrow(ValidationError);
     });
+
+    it("creates a task with a custom status", () => {
+      const task = service.create({ title: "Dev task", status: "development" });
+      expect(task.status).toBe("development");
+      expect(task.state).toBe("pending");
+    });
+
+    it("defaults status to planning when not provided", () => {
+      const task = service.create({ title: "Default status" });
+      expect(task.status).toBe("planning");
+    });
+
+    it("throws ValidationError when status is done", () => {
+      expect(() => service.create({ title: "Bad task", status: "done" })).toThrow(ValidationError);
+    });
+
+    it("throws ValidationError when status is invalid", () => {
+      expect(() => service.create({ title: "Bad task", status: "invalid" })).toThrow(ValidationError);
+    });
   });
 
   // ── list ────────────────────────────────────────────────────────────────────
@@ -90,6 +109,19 @@ describe("TaskService", () => {
 
     it("throws ValidationError for invalid status", () => {
       expect(() => service.list("invalid")).toThrow(ValidationError);
+    });
+
+    it("returns tasks in ascending creation order (oldest first)", () => {
+      const all = service.list();
+      expect(all[0].title).toBe("Planning task");
+      expect(all[1].title).toBe("Planning task 2");
+      expect(all[2].title).toBe("Dev task");
+    });
+
+    it("returns filtered tasks in ascending creation order", () => {
+      const planning = service.list("planning");
+      expect(planning[0].title).toBe("Planning task");
+      expect(planning[1].title).toBe("Planning task 2");
     });
   });
 
