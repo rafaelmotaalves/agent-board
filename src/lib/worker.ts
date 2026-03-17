@@ -200,13 +200,15 @@ export class TaskWorker {
         }
       }
     } catch (err) {
-      // Clean up the orphaned streaming message so retries don't leave duplicates
+      // Always mark the message as complete so the UI never stays in "writing…" state.
+      // If there was partial content, keep it; otherwise set a fallback so the message
+      // isn't left with is_complete=0 (which renders the blinking cursor forever).
       const content = accumulated.trim();
-      if (content) {
-        this.service.updateMessageContent(streamingMsg.id, content, true);
-      } else {
-        this.service.deleteMessage(streamingMsg.id);
-      }
+      this.service.updateMessageContent(
+        streamingMsg.id,
+        content || "(The agent encountered an error before producing a response.)",
+        true,
+      );
 
       // Mark running tool calls as failed
       for (const dbId of toolCallIdMap.values()) {

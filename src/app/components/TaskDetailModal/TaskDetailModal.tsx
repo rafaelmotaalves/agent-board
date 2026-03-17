@@ -53,6 +53,7 @@ export default function TaskDetailModal({ task, agents, onClose, onApprove, onDe
         | { type: "init"; messages: TaskMessage[]; toolCalls: ToolCall[]; usage: TaskUsage[] }
         | { type: "new_messages"; messages: TaskMessage[] }
         | { type: "message_updated"; message: TaskMessage }
+        | { type: "message_deleted"; messageId: number }
         | { type: "new_tool_calls"; toolCalls: ToolCall[] }
         | { type: "tool_call_updated"; toolCall: ToolCall }
         | { type: "usage_updated"; usage: TaskUsage };
@@ -67,6 +68,8 @@ export default function TaskDetailModal({ task, agents, onClose, onApprove, onDe
         setMessages((prev) =>
           prev.map((m) => (m.id === data.message.id ? data.message : m))
         );
+      } else if (data.type === "message_deleted") {
+        setMessages((prev) => prev.filter((m) => m.id !== data.messageId));
       } else if (data.type === "new_tool_calls") {
         setToolCalls((prev) => [...prev, ...data.toolCalls]);
       } else if (data.type === "tool_call_updated") {

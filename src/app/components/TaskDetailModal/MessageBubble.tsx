@@ -7,6 +7,8 @@ import ReactMarkdown from "react-markdown";
 
 interface MessageBubbleProps {
   message: TaskMessage;
+  /** When the task is in a terminal state, force streaming indicators off. */
+  taskState?: string;
 }
 
 /** Renders streaming markdown with a blinking cursor at the end. */
@@ -23,9 +25,10 @@ function StreamingContent({ content }: { content: string }) {
   );
 }
 
-export default function MessageBubble({ message }: MessageBubbleProps) {
+export default function MessageBubble({ message, taskState }: MessageBubbleProps) {
   const isUser = message.role === "user";
-  const isStreaming = !message.is_complete;
+  const isTerminal = taskState === "done" || taskState === "failed";
+  const isStreaming = !message.is_complete && !isTerminal;
   return (
     <div className={`flex gap-2 ${isUser ? "flex-row-reverse" : "flex-row"}`}>
       <div className={`mt-1 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full text-white ${isUser ? "bg-zinc-500" : "bg-blue-600"}`}>
