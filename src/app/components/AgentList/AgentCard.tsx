@@ -29,8 +29,13 @@ export default function AgentCard({ agent, onDelete, onEdit }: AgentCardProps) {
             {typeLabel}
           </span>
           {agent.options?.parallel_planning && (
-            <span className="inline-flex shrink-0 items-center rounded-full bg-blue-100 px-1.5 py-0.5 text-[10px] font-medium text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
-              parallel
+            <span className="ml-1 inline-flex shrink-0 items-center rounded-full bg-blue-100 px-1.5 py-0.5 text-[10px] font-medium text-blue-700 dark:bg-blue-900/30 dark:text-blue-300">
+              ⚡ Parallel planning
+            </span>
+          )}
+          {agent.options?.parallel_development && (
+            <span className="ml-1 inline-flex shrink-0 items-center rounded-full bg-violet-100 px-1.5 py-0.5 text-[10px] font-medium text-violet-700 dark:bg-violet-900/30 dark:text-violet-300">
+              ⚡ Parallel dev
             </span>
           )}
           {isConfig && (

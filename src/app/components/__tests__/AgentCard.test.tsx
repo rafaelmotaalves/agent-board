@@ -56,19 +56,41 @@ describe("AgentCard", () => {
     expect(screen.getByText("Agent Communication Protocol (ACP)")).toBeTruthy();
   });
 
-  it("renders parallel badge when parallel_planning is enabled", () => {
+  it("renders parallel planning badge when parallel_planning is enabled", () => {
     render(
       <AgentCard
         agent={makeAgent({ options: { parallel_planning: true } })}
         onDelete={() => {}}
       />,
     );
-    expect(screen.getByText("parallel")).toBeTruthy();
+    expect(screen.getByText("⚡ Parallel planning")).toBeTruthy();
   });
 
-  it("does not render parallel badge by default", () => {
+  it("renders parallel dev badge when parallel_development is enabled", () => {
+    render(
+      <AgentCard
+        agent={makeAgent({ options: { parallel_development: true } })}
+        onDelete={() => {}}
+      />,
+    );
+    expect(screen.getByText("⚡ Parallel dev")).toBeTruthy();
+  });
+
+  it("renders both parallel badges when both options are enabled", () => {
+    render(
+      <AgentCard
+        agent={makeAgent({ options: { parallel_planning: true, parallel_development: true } })}
+        onDelete={() => {}}
+      />,
+    );
+    expect(screen.getByText("⚡ Parallel planning")).toBeTruthy();
+    expect(screen.getByText("⚡ Parallel dev")).toBeTruthy();
+  });
+
+  it("does not render parallel badges by default", () => {
     render(<AgentCard agent={makeAgent()} onDelete={() => {}} />);
-    expect(screen.queryByText("parallel")).toBeNull();
+    expect(screen.queryByText("⚡ Parallel planning")).toBeNull();
+    expect(screen.queryByText("⚡ Parallel dev")).toBeNull();
   });
 
   it("renders the folder path", () => {
