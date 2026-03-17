@@ -6,10 +6,16 @@
  * high-frequency SQLite writes during streaming and lets the SSE route read
  * content changes directly from the filesystem at low latency.
  *
+ * All writes use synchronous fs calls (`writeFileSync` / `appendFileSync`) so
+ * that each chunk is immediately visible on disk to the SSE reader.  A previous
+ * implementation used a buffered `WriteStream` whose 16 KB internal buffer
+ * prevented tiny LLM deltas from reaching disk, causing the SSE route to see an
+ * empty file until the stream was closed.
+ *
  * Lifecycle:
- *   initStreamingFile()     → worker creates the file and opens a WriteStream
- *   appendStreamingChunk()  → worker appends each delta — no read, no full rewrite
- *   finalizeStreamingFile() → worker closes the WriteStream (file stays for SSE reads)
+ *   initStreamingFile()     → worker creates an empty file on disk
+ *   appendStreamingChunk()  → worker appends each delta synchronously
+ *   finalizeStreamingFile() → no-op (file stays for SSE reads)
  *   deleteStreamingFile()   → worker removes the file after content is saved to SQLite
  *   recover                 → on startup any leftover files are cleaned up
  */
@@ -27,9 +33,6 @@ export interface StreamingStore {
   cleanupAllStreamingFiles(): void;
 }
 
-/** Open write streams keyed by messageId. */
-const openStreams = new Map<number, fs.WriteStream>();
-
 function ensureDir(): void {
   ensureDataDir();
 }
@@ -45,45 +48,30 @@ export function streamingFileExists(messageId: number): boolean {
 }
 
 /**
- * Create (or truncate) the temp file and open an append WriteStream for it.
+ * Create (or truncate) the temp file on disk.
  * Must be called once before any `appendStreamingChunk` calls.
  */
 export function initStreamingFile(messageId: number): void {
   ensureDir();
   const filePath = getStreamingFilePath(messageId);
-  // Truncate to start fresh, then open a persistent append stream.
   fs.writeFileSync(filePath, "", "utf-8");
-  const stream = fs.createWriteStream(filePath, { flags: "a", encoding: "utf-8" });
-  openStreams.set(messageId, stream);
 }
 
 /**
- * Append a single delta chunk to the open WriteStream.
- * Falls back to a direct appendFileSync if no stream is open (e.g. after a crash recovery).
+ * Append a single delta chunk synchronously so the data is immediately
+ * visible on disk to the SSE polling reader.
  */
 export function appendStreamingChunk(messageId: number, chunk: string): void {
-  const stream = openStreams.get(messageId);
-  if (stream) {
-    stream.write(chunk);
-  } else {
-    fs.appendFileSync(getStreamingFilePath(messageId), chunk, "utf-8");
-  }
+  fs.appendFileSync(getStreamingFilePath(messageId), chunk, "utf-8");
 }
 
 /**
- * Close the WriteStream for a message.  The file is kept on disk so the SSE
- * route can still read the final content before `deleteStreamingFile` is called.
+ * Finalize streaming for a message.  Since writes are synchronous, there is
+ * nothing to flush.  The file is kept on disk so the SSE route can still read
+ * the final content before `deleteStreamingFile` is called.
  */
-export function finalizeStreamingFile(messageId: number): Promise<void> {
-  return new Promise((resolve) => {
-    const stream = openStreams.get(messageId);
-    openStreams.delete(messageId);
-    if (stream) {
-      stream.end(resolve);
-    } else {
-      resolve();
-    }
-  });
+export function finalizeStreamingFile(_messageId: number): Promise<void> {
+  return Promise.resolve();
 }
 
 /**
@@ -98,13 +86,8 @@ export function readStreamingContent(messageId: number): string | null {
   }
 }
 
-/** Close any open stream and delete the temp file once the message has been finalised in SQLite. */
+/** Delete the temp file once the message has been finalised in SQLite. */
 export function deleteStreamingFile(messageId: number): void {
-  const stream = openStreams.get(messageId);
-  openStreams.delete(messageId);
-  if (stream) {
-    stream.destroy();
-  }
   try {
     fs.unlinkSync(getStreamingFilePath(messageId));
   } catch {
@@ -117,12 +100,6 @@ export function deleteStreamingFile(messageId: number): void {
  * after a crash where files were never finalised).
  */
 export function cleanupAllStreamingFiles(): void {
-  // Close any lingering streams first.
-  for (const [, stream] of openStreams) {
-    stream.destroy();
-  }
-  openStreams.clear();
-
   try {
     if (!fs.existsSync(STREAMING_DIR)) return;
     const files = fs.readdirSync(STREAMING_DIR);
