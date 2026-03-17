@@ -1,11 +1,14 @@
 "use client";
 
+import { useState, useRef, useEffect } from "react";
 import type { Task, Agent } from "@/lib/types";
 import type { Queue } from "@/lib/queues";
 import { formatDateTime } from "@/lib/formatDate";
 
 import { useActiveTime, formatActiveTime } from "../useActiveTime";
 import { Clock } from "lucide-react";
+
+const DESCRIPTION_MAX_HEIGHT = 80;
 
 interface TaskMetadataProps {
   task: Task;
@@ -16,12 +19,41 @@ interface TaskMetadataProps {
 export default function TaskMetadata({ task, queue, agents }: TaskMetadataProps) {
   const activeMs = useActiveTime(task.active_time_ms, task.active_since);
   const isActive = task.active_since !== null;
+  const [expanded, setExpanded] = useState(false);
+  const [isOverflowing, setIsOverflowing] = useState(false);
+  const [fullHeight, setFullHeight] = useState<number>(0);
+  const descriptionRef = useRef<HTMLParagraphElement>(null);
+
+  useEffect(() => {
+    const el = descriptionRef.current;
+    if (el) {
+      setFullHeight(el.scrollHeight);
+      setIsOverflowing(el.scrollHeight > DESCRIPTION_MAX_HEIGHT);
+    }
+  }, [task.description]);
 
   return (
     <div className="flex-shrink-0 px-5 py-4">
       <h2 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">{task.title}</h2>
       {task.description && (
-        <p className="mt-1.5 text-sm text-zinc-600 dark:text-zinc-400 whitespace-pre-wrap">{task.description}</p>
+        <div className="mt-1.5">
+          <p
+            ref={descriptionRef}
+            className="text-sm text-zinc-600 dark:text-zinc-400 whitespace-pre-wrap overflow-hidden transition-[max-height] duration-200"
+            style={{ maxHeight: expanded ? `${fullHeight}px` : `${DESCRIPTION_MAX_HEIGHT}px` }}
+          >
+            {task.description}
+          </p>
+          {isOverflowing && (
+            <button
+              type="button"
+              onClick={() => setExpanded((v) => !v)}
+              className="mt-1 cursor-pointer text-xs font-medium text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300"
+            >
+              {expanded ? "Show less" : "Show more"}
+            </button>
+          )}
+        </div>
       )}
       <dl className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2 text-xs text-zinc-500 dark:text-zinc-400">
         <div>

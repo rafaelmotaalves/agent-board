@@ -43,17 +43,17 @@ describe("AgentCard", () => {
 
   it("renders the type label", () => {
     render(<AgentCard agent={makeAgent()} onDelete={() => {}} />);
-    expect(screen.getByText("Copilot CLI SDK")).toBeTruthy();
+    expect(screen.getByText("Copilot CLI")).toBeTruthy();
   });
 
-  it("renders ACP Agent label for acp type", () => {
+  it("renders Agent Communication Protocol (ACP) label for acp type", () => {
     render(
       <AgentCard
         agent={makeAgent({ type: "acp", command: "cmd", port: null })}
         onDelete={() => {}}
       />,
     );
-    expect(screen.getByText("ACP Agent")).toBeTruthy();
+    expect(screen.getByText("Agent Communication Protocol (ACP)")).toBeTruthy();
   });
 
   it("renders parallel planning badge when parallel_planning is enabled", () => {

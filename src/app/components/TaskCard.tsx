@@ -49,7 +49,7 @@ export default function TaskCard({ task, queue, assignedAgent, onDelete, onClick
         )}
       </h3>
       {task.description && (
-        <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+        <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400 line-clamp-2">
           {task.description}
         </p>
       )}
