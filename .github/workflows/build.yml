@@ -33,7 +33,7 @@ jobs:
         if: always()
         with:
           report-path: ./junit.xml
-          summary-delta-report: true
+          summary-report: true
           pull-request-report: true
           failed-report: true
           exit-on-fail: true
