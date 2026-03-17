@@ -1,16 +1,19 @@
 import { Database } from "bun:sqlite";
-import type { Agent, AgentOptions } from "@/lib/types";
+import type { Agent, AgentOptions, AgentType } from "@/lib/types";
+import { isValidAgentType, DEFAULT_AGENT_TYPE } from "@/lib/types";
 import { getDb } from "./db";
 
 export interface CreateAgentInput {
   name: string;
   port: number;
+  type?: AgentType;
   options?: AgentOptions;
 }
 
 export interface UpdateAgentInput {
   name?: string;
   port?: number;
+  type?: AgentType;
   options?: AgentOptions;
 }
 
@@ -66,11 +69,16 @@ export class AgentService {
       throw new AgentValidationError("Port must be an integer between 1 and 65535");
     }
 
+    const type = input.type ?? DEFAULT_AGENT_TYPE;
+    if (!isValidAgentType(type)) {
+      throw new AgentValidationError(`Invalid agent type: ${type}`);
+    }
+
     const options = JSON.stringify(input.options ?? {});
 
     const result = this.db
-      .prepare("INSERT INTO agents (name, port, options) VALUES (?, ?, ?)")
-      .run(name, port, options);
+      .prepare("INSERT INTO agents (name, port, type, options) VALUES (?, ?, ?, ?)")
+      .run(name, port, type, options);
 
     return this.findById(result.lastInsertRowid as number)!;
   }
@@ -87,13 +95,18 @@ export class AgentService {
       throw new AgentValidationError("Port must be an integer between 1 and 65535");
     }
 
+    const type = input.type !== undefined ? input.type : existing.type;
+    if (!isValidAgentType(type)) {
+      throw new AgentValidationError(`Invalid agent type: ${type}`);
+    }
+
     const options = input.options !== undefined
       ? JSON.stringify(input.options)
       : JSON.stringify(existing.options);
 
     this.db
-      .prepare("UPDATE agents SET name = ?, port = ?, options = ? WHERE id = ?")
-      .run(name, port, options, id);
+      .prepare("UPDATE agents SET name = ?, port = ?, type = ?, options = ? WHERE id = ?")
+      .run(name, port, type, options, id);
 
     return this.findById(id)!;
   }

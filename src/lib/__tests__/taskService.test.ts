@@ -520,6 +520,69 @@ describe("TaskService", () => {
     });
   });
 
+  // ── deleteMessage ─────────────────────────────────────────────────────────
+
+  describe("deleteMessage", () => {
+    it("deletes a message by ID", () => {
+      const task = service.create({ title: "Task", agent_id: 1 });
+      const msg = service.createStreamingAgentMessage(task.id, "planning");
+
+      service.deleteMessage(msg.id);
+
+      const messages = service.listMessages(task.id);
+      expect(messages).toHaveLength(0);
+    });
+  });
+
+  // ── deleteIncompleteMessages ──────────────────────────────────────────────
+
+  describe("deleteIncompleteMessages", () => {
+    it("removes all incomplete agent messages for a task", () => {
+      const task = service.create({ title: "Task", agent_id: 1 });
+      // Create two incomplete messages (simulating failed retries)
+      service.createStreamingAgentMessage(task.id, "planning");
+      service.createStreamingAgentMessage(task.id, "planning");
+
+      service.deleteIncompleteMessages(task.id);
+
+      const messages = service.listMessages(task.id);
+      expect(messages).toHaveLength(0);
+    });
+
+    it("does not remove completed messages", () => {
+      const task = service.create({ title: "Task", agent_id: 1 });
+      const msg = service.createStreamingAgentMessage(task.id, "planning");
+      service.updateMessageContent(msg.id, "Done content", true);
+      // Add an incomplete one
+      service.createStreamingAgentMessage(task.id, "planning");
+
+      service.deleteIncompleteMessages(task.id);
+
+      const messages = service.listMessages(task.id);
+      expect(messages).toHaveLength(1);
+      expect(messages[0].content).toBe("Done content");
+      expect(messages[0].is_complete).toBe(1);
+    });
+  });
+
+  // ── createStreamingAgentMessage cleans up stale messages ──────────────────
+
+  describe("createStreamingAgentMessage cleanup", () => {
+    it("removes orphaned incomplete messages before creating a new one", () => {
+      const task = service.create({ title: "Task", agent_id: 1 });
+      // Simulate an orphaned incomplete message from a failed attempt
+      service.createStreamingAgentMessage(task.id, "planning");
+
+      // Creating a new streaming message should clean up the orphaned one
+      service.createStreamingAgentMessage(task.id, "planning");
+
+      const messages = service.listMessages(task.id);
+      // Should only have one incomplete message (the newly created one)
+      const incomplete = messages.filter((m) => m.is_complete === 0);
+      expect(incomplete).toHaveLength(1);
+    });
+  });
+
   // ── getLastMessage ─────────────────────────────────────────────────────────
 
   describe("getLastMessage", () => {

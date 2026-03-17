@@ -2,6 +2,7 @@
 
 import { useRef } from "react";
 import type { TaskMessage } from "@/lib/types";
+import { formatDateTime } from "@/lib/formatDate";
 import { Bot, User, PenLine } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 
@@ -77,7 +78,7 @@ export default function MessageBubble({ message }: MessageBubbleProps) {
           )}
         </div>
         <p className="mt-0.5 px-1 text-xs text-zinc-400 dark:text-zinc-500">
-          {new Date(message.created_at).toISOString()}
+          {formatDateTime(message.created_at)}
         </p>
       </div>
     </div>

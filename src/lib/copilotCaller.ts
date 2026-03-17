@@ -9,6 +9,15 @@ const logAndApprove: PermissionHandler = (request, invocation) => {
     return approveAll(request, invocation);
 };
 
+export const logAndDenyWrites: PermissionHandler = (request, invocation) => {
+    if (request.kind === "write") {
+        logger.info({ kind: request.kind, toolCallId: request.toolCallId, sessionId: invocation.sessionId }, "Denying write permission request in planning mode");
+        return { kind: "denied-by-rules", rules: [{ description: "Write operations are not allowed during planning mode" }] };
+    }
+    logger.info({ kind: request.kind, toolCallId: request.toolCallId, sessionId: invocation.sessionId }, "Approving tool permission request in planning mode");
+    return approveAll(request, invocation);
+};
+
 const LOCALHOST = "localhost";
 const PLAN_TIMEOUT_MS = 3600000; // 60 minutes
 const GENERAL_GUIDELINES = `
@@ -48,7 +57,7 @@ export class CopilotCaller implements IAgentCaller {
         }
         logger.info({ taskId }, "Creating new execution session for task planning");
         const session = await this.client.createSession({ 
-            onPermissionRequest: logAndApprove,
+            onPermissionRequest: logAndDenyWrites,
             streaming: true,
             systemMessage: {
                 content: PLAN_SYSTEM_MESSAGE.trim()

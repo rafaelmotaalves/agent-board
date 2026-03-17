@@ -1,6 +1,6 @@
 "use client";
 
-import type { Agent, AgentOptions } from "@/lib/types";
+import type { Agent, AgentOptions, AgentType } from "@/lib/types";
 import AgentCard from "./AgentCard";
 import NewAgentForm from "./NewAgentForm";
 import AgentEmptyState from "./AgentEmptyState";
@@ -8,7 +8,7 @@ import AgentEmptyState from "./AgentEmptyState";
 interface AgentListProps {
   agents: Agent[];
   onDelete: (agent: Agent) => void;
-  onSubmit: (name: string, port: number, options?: AgentOptions) => Promise<void>;
+  onSubmit: (name: string, port: number, type: AgentType, options?: AgentOptions) => Promise<void>;
 }
 
 export default function AgentList({ agents, onDelete, onSubmit }: AgentListProps) {

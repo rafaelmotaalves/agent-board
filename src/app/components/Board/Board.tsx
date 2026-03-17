@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import type { Task, Agent, AgentOptions } from "@/lib/types";
+import type { Task, Agent, AgentOptions, AgentType } from "@/lib/types";
 import { Queue, QUEUES } from "@/lib/queues";
 import { fetchTasks as apiFetchTasks, createTask, updateTaskStatus, deleteTask, fetchAgents, createAgent, deleteAgent } from "@/lib/api";
 import TaskDetailModal from "../TaskDetailModal";
@@ -70,8 +70,8 @@ export default function Board() {
     fetchTasks();
   }
 
-  async function handleCreateAgent(name: string, port: number, options?: AgentOptions) {
-    await createAgent(name, port, options);
+  async function handleCreateAgent(name: string, port: number, type: AgentType, options?: AgentOptions) {
+    await createAgent(name, port, type, options);
     fetchAgentsData();
   }
 

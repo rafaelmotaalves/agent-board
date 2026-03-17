@@ -442,6 +442,37 @@ describe("TaskWorker", () => {
       expect(failed.failure_reason).toBe("sendMessage failed");
       failWorker.stop();
     });
+
+    it("cleans up empty streaming message on failure so retries don't leave duplicates", async () => {
+      const failWorker = new TaskWorker(service, createFailingAgentPool("agent crashed"));
+      const task = service.create({ title: "Retry task", agent_id: 1 });
+
+      // First attempt — agent fails, should clean up the empty streaming message
+      failWorker.tick();
+      await flushMicrotasks();
+      jest.advanceTimersByTime(AGENT_DELAY_MS);
+      await flushMicrotasks();
+
+      expect(service.findById(task.id)!.state).toBe("failed");
+      // The empty streaming message should have been deleted
+      const messagesAfterFail = service.listMessages(task.id);
+      const incomplete = messagesAfterFail.filter((m) => m.is_complete === 0);
+      expect(incomplete).toHaveLength(0);
+
+      // Retry — user sends a message to retry
+      service.addUserMessage(task.id, "Please try again");
+
+      // Second attempt — also fails, but should NOT leave duplicate incomplete messages
+      failWorker.tick();
+      await flushMicrotasks();
+      jest.advanceTimersByTime(AGENT_DELAY_MS);
+      await flushMicrotasks();
+
+      const messagesAfterRetry = service.listMessages(task.id);
+      const incompleteAfterRetry = messagesAfterRetry.filter((m) => m.is_complete === 0);
+      expect(incompleteAfterRetry).toHaveLength(0);
+      failWorker.stop();
+    });
   });
 
   describe("development task completion", () => {

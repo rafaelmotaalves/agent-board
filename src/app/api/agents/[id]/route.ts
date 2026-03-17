@@ -45,6 +45,7 @@ export async function PATCH(
     const agent = getService().update(agentId, {
       name: body.name,
       port: body.port,
+      type: body.type,
       options: body.options,
     });
     return NextResponse.json(agent);

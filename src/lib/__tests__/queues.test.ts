@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test";
-import { QUEUES, getNextQueue, isValidQueue } from "@/lib/queues";
+import { QUEUES, getNextQueue, isValidQueue, isReadyForReview } from "@/lib/queues";
 
 describe("queues", () => {
   it("has 3 queues in order", () => {
@@ -35,6 +35,23 @@ describe("queues", () => {
     it("returns false for invalid slugs", () => {
       expect(isValidQueue("invalid")).toBe(false);
       expect(isValidQueue("")).toBe(false);
+    });
+  });
+
+  describe("isReadyForReview", () => {
+    it("returns true when state is done and not in final queue", () => {
+      expect(isReadyForReview("done", "planning")).toBe(true);
+      expect(isReadyForReview("done", "development")).toBe(true);
+    });
+
+    it("returns false when in the final queue (done)", () => {
+      expect(isReadyForReview("done", "done")).toBe(false);
+    });
+
+    it("returns false when state is not done", () => {
+      expect(isReadyForReview("pending", "planning")).toBe(false);
+      expect(isReadyForReview("in_progress", "development")).toBe(false);
+      expect(isReadyForReview("failed", "planning")).toBe(false);
     });
   });
 });

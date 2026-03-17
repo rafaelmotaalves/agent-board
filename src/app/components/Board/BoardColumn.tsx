@@ -1,5 +1,6 @@
 import type { Task, Agent } from "@/lib/types";
 import type { Queue } from "@/lib/queues";
+import { isReadyForReview } from "@/lib/queues";
 import TaskCard from "../TaskCard";
 import NewTaskForm from "../NewTaskForm";
 
@@ -13,6 +14,8 @@ interface BoardColumnProps {
 }
 
 export default function BoardColumn({ queue, tasks, agents, onDelete, onClick, onCreateTask }: BoardColumnProps) {
+  const reviewCount = tasks.filter((t) => isReadyForReview(t.state, queue.slug)).length;
+
   return (
     <section
       className="flex min-h-0 min-w-[20rem] flex-1 flex-col rounded-xl bg-zinc-50 p-4 dark:bg-zinc-900/50"
@@ -21,9 +24,16 @@ export default function BoardColumn({ queue, tasks, agents, onDelete, onClick, o
         <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-600 dark:text-zinc-400">
           {queue.label}
         </h2>
-        <span className="rounded-full bg-zinc-200 px-2 py-0.5 text-xs font-medium text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300">
-          {tasks.length}
-        </span>
+        <div className="flex items-center gap-1.5">
+          {reviewCount > 0 && (
+            <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
+              {reviewCount} to review
+            </span>
+          )}
+          <span className="rounded-full bg-zinc-200 px-2 py-0.5 text-xs font-medium text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300">
+            {tasks.length}
+          </span>
+        </div>
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto">

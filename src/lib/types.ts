@@ -20,6 +20,18 @@ export interface Task {
   updated_at: string;
 }
 
+export const AGENT_TYPES = [
+  { value: "copilot_cli_sdk", label: "Copilot CLI SDK" },
+] as const;
+
+export type AgentType = (typeof AGENT_TYPES)[number]["value"];
+
+export function isValidAgentType(type: string): type is AgentType {
+  return AGENT_TYPES.some((t) => t.value === type);
+}
+
+export const DEFAULT_AGENT_TYPE: AgentType = "copilot_cli_sdk";
+
 export interface AgentOptions {
   parallel_planning?: boolean;
 }
@@ -28,6 +40,7 @@ export interface Agent {
   id: number;
   name: string;
   port: number;
+  type: AgentType;
   options: AgentOptions;
   created_at: string;
 }
