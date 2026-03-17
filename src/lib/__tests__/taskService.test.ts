@@ -16,6 +16,8 @@ function createDb(): Database {
       state TEXT NOT NULL DEFAULT 'pending',
       failure_reason TEXT DEFAULT NULL,
       completed_at TEXT DEFAULT NULL,
+      active_time_ms INTEGER NOT NULL DEFAULT 0,
+      active_since TEXT DEFAULT NULL,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     )
@@ -580,6 +582,106 @@ describe("TaskService", () => {
     it("is null for tasks not yet in done queue", () => {
       const task = service.create({ title: "Task", agent_id: 1 });
       expect(task.completed_at).toBeNull();
+    });
+  });
+
+  // ── active time tracking ──────────────────────────────────────────────────
+
+  describe("active time tracking", () => {
+    it("sets active_since when state transitions to in_progress", () => {
+      const task = service.create({ title: "Task", agent_id: 1 });
+      expect(task.active_since).toBeNull();
+      expect(task.active_time_ms).toBe(0);
+
+      const updated = service.update(task.id, { state: "in_progress" });
+      expect(updated.active_since).not.toBeNull();
+      expect(updated.active_time_ms).toBe(0);
+    });
+
+    it("accumulates active_time_ms when state transitions from in_progress to done", () => {
+      const task = service.create({ title: "Task", agent_id: 1 });
+
+      // Manually set active_since to 5 seconds ago to simulate elapsed time
+      const fiveSecondsAgo = new Date(Date.now() - 5000).toISOString();
+      const db = (service as unknown as { db: Database }).db;
+      db.prepare("UPDATE tasks SET state = 'in_progress', active_since = ? WHERE id = ?")
+        .run(fiveSecondsAgo, task.id);
+
+      const done = service.update(task.id, { state: "done" });
+      expect(done.active_since).toBeNull();
+      expect(done.active_time_ms).toBeGreaterThanOrEqual(4000);
+      expect(done.active_time_ms).toBeLessThan(10000);
+    });
+
+    it("accumulates active_time_ms when state transitions from in_progress to failed", () => {
+      const task = service.create({ title: "Task", agent_id: 1 });
+
+      const threeSecondsAgo = new Date(Date.now() - 3000).toISOString();
+      const db = (service as unknown as { db: Database }).db;
+      db.prepare("UPDATE tasks SET state = 'in_progress', active_since = ? WHERE id = ?")
+        .run(threeSecondsAgo, task.id);
+
+      const failed = service.update(task.id, { state: "failed", failure_reason: "error" });
+      expect(failed.active_since).toBeNull();
+      expect(failed.active_time_ms).toBeGreaterThanOrEqual(2000);
+    });
+
+    it("accumulates across multiple in_progress cycles", () => {
+      const task = service.create({ title: "Task", agent_id: 1 });
+
+      // First cycle: manually simulate 2 seconds of active time
+      const twoSecondsAgo = new Date(Date.now() - 2000).toISOString();
+      const db = (service as unknown as { db: Database }).db;
+      db.prepare("UPDATE tasks SET state = 'in_progress', active_since = ? WHERE id = ?")
+        .run(twoSecondsAgo, task.id);
+      service.update(task.id, { state: "done" });
+
+      // Second cycle: simulate 3 more seconds
+      const task2 = service.findById(task.id)!;
+      const firstCycleMs = task2.active_time_ms;
+      expect(firstCycleMs).toBeGreaterThanOrEqual(1000);
+
+      const threeSecondsAgo = new Date(Date.now() - 3000).toISOString();
+      db.prepare("UPDATE tasks SET state = 'done', active_since = NULL WHERE id = ?").run(task.id);
+      // Transition via add_message path
+      db.prepare("UPDATE tasks SET state = 'in_progress', active_since = ? WHERE id = ?")
+        .run(threeSecondsAgo, task.id);
+
+      const final = service.update(task.id, { state: "done" });
+      expect(final.active_time_ms).toBeGreaterThanOrEqual(firstCycleMs + 2000);
+      expect(final.active_since).toBeNull();
+    });
+
+    it("does not change active_time_ms when state does not leave in_progress", () => {
+      const task = service.create({ title: "Task", agent_id: 1 });
+      const updated = service.update(task.id, { state: "in_progress" });
+      const titleUpdated = service.update(task.id, { title: "New title" });
+      // active_since should still be set, active_time_ms unchanged (no accumulation yet)
+      expect(titleUpdated.active_since).toBe(updated.active_since);
+      expect(titleUpdated.active_time_ms).toBe(0);
+    });
+
+    it("recoverInProgressTasks accumulates active time", () => {
+      const task = service.create({ title: "Stuck task", agent_id: 1 });
+
+      const twoSecondsAgo = new Date(Date.now() - 2000).toISOString();
+      const db = (service as unknown as { db: Database }).db;
+      db.prepare("UPDATE tasks SET state = 'in_progress', active_since = ? WHERE id = ?")
+        .run(twoSecondsAgo, task.id);
+
+      const count = service.recoverInProgressTasks();
+      expect(count).toBe(1);
+
+      const recovered = service.findById(task.id)!;
+      expect(recovered.state).toBe("failed");
+      expect(recovered.active_since).toBeNull();
+      expect(recovered.active_time_ms).toBeGreaterThanOrEqual(1000);
+    });
+
+    it("new tasks start with active_time_ms=0 and active_since=null", () => {
+      const task = service.create({ title: "Fresh", agent_id: 1 });
+      expect(task.active_time_ms).toBe(0);
+      expect(task.active_since).toBeNull();
     });
   });
 });

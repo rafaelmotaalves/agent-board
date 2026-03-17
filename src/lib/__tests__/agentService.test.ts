@@ -24,6 +24,8 @@ function createDb(): Database {
       state TEXT NOT NULL DEFAULT 'pending',
       failure_reason TEXT DEFAULT NULL,
       completed_at TEXT DEFAULT NULL,
+      active_time_ms INTEGER NOT NULL DEFAULT 0,
+      active_since TEXT DEFAULT NULL,
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     )

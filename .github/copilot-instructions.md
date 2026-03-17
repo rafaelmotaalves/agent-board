@@ -30,6 +30,8 @@ You can focus on implementing the features for now, don't need to worry about im
 
 Always run the unit tests (`bun test`) after making code changes and ensure they all pass before finishing. Do **not** run E2E tests (`bun run test:e2e`) unless explicitly asked to.
 
+Use the `development-workflow` skill for guidance on creating a worktree, committing changes, and opening a PR using the `gh` CLI. Follow the conventions outlined below for code style, testing, and component structure.
+
 ## Conventions
 
 - **Path alias**: Use `@/*` to import from `src/*` (e.g., `import Foo from "@/components/Foo"`)

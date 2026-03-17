@@ -12,9 +12,9 @@ const logAndApprove: PermissionHandler = (request, invocation) => {
 const LOCALHOST = "localhost";
 const PLAN_TIMEOUT_MS = 3600000; // 60 minutes
 const GENERAL_GUIDELINES = `
+    * Communicate your thought process clearly and step-by-step using bullet points as you work through the task. 
     * Include line breaks and use markdown where appropriate to improve readability.
-    * Write "Executing: \`<command>\`" before executing any commands.
-    * Update the user with your progress as you work through your task, but do not return anything until the task is fully complete.
+    * Output "Executing: \`<command>\`" before executing any commands.
 `;
 const EXECUTE_SYSTEM_MESSAGE = 
 `

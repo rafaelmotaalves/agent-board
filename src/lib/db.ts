@@ -43,6 +43,12 @@ export function getDb(): Database {
     if (!cols.includes("completed_at")) {
       _db.exec("ALTER TABLE tasks ADD COLUMN completed_at TEXT DEFAULT NULL");
     }
+    if (!cols.includes("active_time_ms")) {
+      _db.exec("ALTER TABLE tasks ADD COLUMN active_time_ms INTEGER NOT NULL DEFAULT 0");
+    }
+    if (!cols.includes("active_since")) {
+      _db.exec("ALTER TABLE tasks ADD COLUMN active_since TEXT DEFAULT NULL");
+    }
 
     _db.exec(`
       CREATE TABLE IF NOT EXISTS agents (
