@@ -1,7 +1,7 @@
 import { Database } from "bun:sqlite";
 import path from 'node:path';
-import type { Task, TaskState } from "@/lib/types";
-export type { Task, TaskState };
+import type { Task, TaskState, Agent } from "@/lib/types";
+export type { Task, TaskState, Agent };
 export { isValidState } from "@/lib/types";
 
 const DB_PATH = path.join(process.cwd(), "ai-board.db");
@@ -34,6 +34,21 @@ export function getDb(): Database {
     if (!cols.includes("plan")) {
       _db.exec("ALTER TABLE tasks ADD COLUMN plan TEXT DEFAULT NULL");
     }
+    if (!cols.includes("agent_id")) {
+      _db.exec("ALTER TABLE tasks ADD COLUMN agent_id INTEGER DEFAULT NULL REFERENCES agents(id) ON DELETE SET NULL");
+    }
+    if (!cols.includes("execution")) {
+      _db.exec("ALTER TABLE tasks ADD COLUMN execution TEXT DEFAULT NULL");
+    }
+
+    _db.exec(`
+      CREATE TABLE IF NOT EXISTS agents (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        port INTEGER NOT NULL UNIQUE,
+        created_at TEXT NOT NULL DEFAULT (datetime('now'))
+      )
+    `);
   }
   return _db;
 }

@@ -6,6 +6,8 @@ import { getDb } from "./db";
 export interface CreateTaskInput {
   title: string;
   description?: string;
+  /** Agent to assign at creation time */
+  agent_id?: number | null;
 }
 
 export interface UpdateTaskInput {
@@ -13,6 +15,8 @@ export interface UpdateTaskInput {
   description?: string;
   /** Markdown plan — settable via API only */
   plan?: string | null;
+  /** Markdown execution log — settable via API only */
+  execution?: string | null;
   /** Queue column (planning | development | done) */
   status?: string;
   /** Per-queue state (pending | in_progress | done) */
@@ -57,16 +61,28 @@ export class TaskService {
     return result ?? undefined;
   }
 
+  /** Returns the oldest pending task for the given queue status, or undefined if none. */
+  findNextPending(status: string): Task | undefined {
+    if (!isValidQueue(status)) throw new ValidationError("Invalid status");
+    const result = this.db
+      .prepare(
+        "SELECT * FROM tasks WHERE status = ? AND state = 'pending' ORDER BY created_at ASC LIMIT 1"
+      )
+      .get(status) as Task | null;
+    return result ?? undefined;
+  }
+
   create(input: CreateTaskInput): Task {
     const title = input.title?.trim();
     if (!title) throw new ValidationError("Title is required");
 
     const description = (input.description ?? "").trim();
+    const agent_id = input.agent_id ?? null;
     const result = this.db
       .prepare(
-        "INSERT INTO tasks (title, description, status, state) VALUES (?, ?, 'planning', 'pending')"
+        "INSERT INTO tasks (title, description, agent_id, status, state) VALUES (?, ?, ?, 'planning', 'pending')"
       )
-      .run(title, description);
+      .run(title, description, agent_id);
 
     return this.db
       .prepare("SELECT * FROM tasks WHERE id = ?")
@@ -77,10 +93,11 @@ export class TaskService {
     const existing = this.findById(id);
     if (!existing) throw new TaskNotFoundError(id);
 
-    const title = input.title ? input.title.trim() : existing.title;
+    const title = input.title !== undefined ? input.title.trim() : existing.title;
     const description =
       input.description ? input.description.trim() : existing.description;
     const plan = input.plan !== undefined ? input.plan : existing.plan;
+    const execution = input.execution !== undefined ? input.execution : existing.execution;
     const status = input.status ? input.status : existing.status;
     const statusChanged = input.status !== undefined && input.status !== existing.status;
 
@@ -102,9 +119,9 @@ export class TaskService {
 
     this.db
       .prepare(
-        "UPDATE tasks SET title = ?, description = ?, plan = ?, status = ?, state = ?, updated_at = datetime('now') WHERE id = ?"
+        "UPDATE tasks SET title = ?, description = ?, plan = ?, execution = ?, status = ?, state = ?, updated_at = datetime('now') WHERE id = ?"
       )
-      .run(title, description, plan, status, state, id);
+      .run(title, description, plan, execution, status, state, id);
 
     return this.findById(id) as Task;
   }

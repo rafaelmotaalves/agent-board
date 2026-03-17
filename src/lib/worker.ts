@@ -1,7 +1,12 @@
 import { TaskService } from "@/lib/taskService";
-import { Task } from "@/lib/types";
+import { Task } from "./types";
+import { AgentPool } from "./agentPool";
+import logger from "./logger";
+import { SLUG_DEVELOPMENT, SLUG_PLANNING } from "./queues";
 
-const PROCESSABLE_STATUSES = ["planning", "development"] as const;
+const log = logger.child({ module: "TaskWorker" });
+
+const PROCESSABLE_STATUSES = [SLUG_PLANNING, SLUG_DEVELOPMENT] as const;
 
 export interface WorkerConfig {
   pollIntervalMs: number;
@@ -15,25 +20,35 @@ const DEFAULT_CONFIG: WorkerConfig = {
 
 export class TaskWorker {
   private intervalId: ReturnType<typeof setInterval> | null = null;
-  private readonly processing = new Map<string, number>();
+  private readonly processing = new Map<string, number>(); // status → taskId
   private readonly config: WorkerConfig;
+  private readonly agentPool: AgentPool | null;
 
   constructor(
     private readonly service: TaskService,
-    config?: Partial<WorkerConfig>
+    agentPoolOrConfig?: AgentPool | Partial<WorkerConfig>,
+    config?: Partial<WorkerConfig>,
   ) {
-    this.config = { ...DEFAULT_CONFIG, ...config };
+    if (agentPoolOrConfig instanceof AgentPool) {
+      this.agentPool = agentPoolOrConfig;
+      this.config = { ...DEFAULT_CONFIG, ...config };
+    } else {
+      this.agentPool = null;
+      this.config = { ...DEFAULT_CONFIG, ...agentPoolOrConfig };
+    }
   }
 
   start(): void {
     if (this.intervalId) return;
     this.intervalId = setInterval(() => this.tick(), this.config.pollIntervalMs);
+    log.info({ pollIntervalMs: this.config.pollIntervalMs }, "Worker started");
   }
 
   stop(): void {
     if (this.intervalId) {
       clearInterval(this.intervalId);
       this.intervalId = null;
+      log.info("Worker stopped");
     }
   }
 
@@ -47,28 +62,52 @@ export class TaskWorker {
 
   /** Exposed for testing — runs one poll cycle synchronously (scheduling only). */
   tick(): void {
-    console.log("Worker tick - checking for tasks to process");
+    log.debug({ processing: Array.from(this.processing.entries()) }, "Tick");
     for (const status of PROCESSABLE_STATUSES) {
-      if (this.processing.has(status)) continue;
+      if (this.processing.has(status)) {
+        log.debug({ status }, "Already processing a task for this status, skipping");
+        continue;
+      }
 
-      const tasks = this.service.list(status) as Task[];
-      const pending = tasks.find((t) => t.state === "pending");
-      if (!pending) continue;
+      const pending = this.service.findNextPending(status);
+
+      if (!pending) {
+        log.debug({ status }, "No pending tasks");
+        continue;
+      }
 
       this.processTask(pending, status);
     }
   }
 
-  private processTask(task: Task, status: string): void {
+  private async processTask(task: Task, status: string): Promise<void> {
     this.processing.set(status, task.id);
     this.service.update(task.id, { state: "in_progress" });
+    log.info({ taskId: task.id, status, title: task.title }, "Task picked up — processing started");
 
-    setTimeout(() => {
-      try {
-        this.service.update(task.id, { state: "done", "plan": "# Update plan" });
-      } finally {
-        this.processing.delete(status);
+    try {
+      if (this.agentPool && task.agent_id) {
+        const caller = await this.agentPool.get(task.agent_id);
+        log.info({ taskId: task.id, agentId: task.agent_id, status }, "Calling agent");
+
+        if (status === SLUG_PLANNING) {
+          const plan = await caller.planTask(task);
+          this.service.update(task.id, { state: "done", plan });
+        } else {
+          const execution = await caller.executeTask(task);
+          this.service.update(task.id, { state: "done", execution });
+        }
+      } else {
+        await new Promise<void>((resolve) => setTimeout(resolve, this.config.processingTimeMs));
+        this.service.update(task.id, { state: "done" });
       }
-    }, this.config.processingTimeMs);
+
+      log.info({ taskId: task.id, status }, "Task completed");
+    } catch (err: unknown) {
+      this.service.update(task.id, { state: "failed" });
+      log.error({ taskId: task.id, status, err }, "Task processing failed");
+    } finally {
+      this.processing.delete(status);
+    }
   }
 }

@@ -10,8 +10,17 @@ export interface Task {
   title: string;
   description: string;
   plan: string | null;
+  execution: string | null;
+  agent_id: number | null;
   status: string;
   state: TaskState;
   created_at: string;
   updated_at: string;
+}
+
+export interface Agent {
+  id: number;
+  name: string;
+  port: number;
+  created_at: string;
 }

@@ -1,19 +1,20 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import type { Task } from "@/lib/types";
+import type { Task, Agent } from "@/lib/types";
 import { Queue, getNextQueue, QUEUES } from "@/lib/queues";
 import { Loader2, X } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 
 interface TaskDetailModalProps {
   task: Task;
+  agents: Agent[];
   onClose: () => void;
   onApprove: (task: Task, nextQueue: Queue) => void;
   onDelete: (task: Task) => void;
 }
 
-export default function TaskDetailModal({ task, onClose, onApprove, onDelete }: TaskDetailModalProps) {
+export default function TaskDetailModal({ task, agents, onClose, onApprove, onDelete }: TaskDetailModalProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const queue = QUEUES.find((q) => q.slug === task.status);
   const nextQueue = queue ? getNextQueue(queue.slug) : null;
@@ -91,11 +92,29 @@ export default function TaskDetailModal({ task, onClose, onApprove, onDelete }: 
           </div>
         </dl>
 
+        <div className="mt-4">
+          <label className="block text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+            Assigned Agent
+          </label>
+          <p className="mt-1 text-sm text-zinc-700 dark:text-zinc-200">
+            {agents.find((a) => a.id === task.agent_id)?.name ?? <span className="italic text-zinc-400">Unassigned</span>}
+          </p>
+        </div>
+
         {task.plan && (
           <div className="mt-5 border-t border-zinc-100 pt-4 dark:border-zinc-700">
             <h3 className="mb-2 text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">Plan</h3>
             <div className="prose prose-sm max-w-none dark:prose-invert prose-headings:text-zinc-800 prose-p:text-zinc-600 prose-code:rounded prose-code:bg-zinc-100 prose-code:px-1 prose-code:text-zinc-800 dark:prose-headings:text-zinc-100 dark:prose-p:text-zinc-300 dark:prose-code:bg-zinc-700 dark:prose-code:text-zinc-200">
               <ReactMarkdown>{task.plan}</ReactMarkdown>
+            </div>
+          </div>
+        )}
+
+        {task.execution && (
+          <div className="mt-5 border-t border-zinc-100 pt-4 dark:border-zinc-700">
+            <h3 className="mb-2 text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">Execution</h3>
+            <div className="prose prose-sm max-w-none dark:prose-invert prose-headings:text-zinc-800 prose-p:text-zinc-600 prose-code:rounded prose-code:bg-zinc-100 prose-code:px-1 prose-code:text-zinc-800 dark:prose-headings:text-zinc-100 dark:prose-p:text-zinc-300 dark:prose-code:bg-zinc-700 dark:prose-code:text-zinc-200">
+              <ReactMarkdown>{task.execution}</ReactMarkdown>
             </div>
           </div>
         )}

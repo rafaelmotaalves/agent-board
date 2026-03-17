@@ -1,15 +1,18 @@
 "use client";
 
 import { useState } from "react";
+import type { Agent } from "@/lib/types";
 
 interface NewTaskFormProps {
-  onSubmit: (title: string, description: string) => Promise<void>;
+  agents: Agent[];
+  onSubmit: (title: string, description: string, agentId: number | null) => Promise<void>;
 }
 
-export default function NewTaskForm({ onSubmit }: NewTaskFormProps) {
+export default function NewTaskForm({ agents, onSubmit }: NewTaskFormProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
+  const [agentId, setAgentId] = useState<number | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -18,9 +21,10 @@ export default function NewTaskForm({ onSubmit }: NewTaskFormProps) {
 
     setSubmitting(true);
     try {
-      await onSubmit(title.trim(), description.trim());
+      await onSubmit(title.trim(), description.trim(), agentId);
       setTitle("");
       setDescription("");
+      setAgentId(null);
       setIsOpen(false);
     } finally {
       setSubmitting(false);
@@ -55,6 +59,18 @@ export default function NewTaskForm({ onSubmit }: NewTaskFormProps) {
         rows={2}
         className="mt-2 w-full rounded border border-zinc-200 px-3 py-2 text-sm outline-none focus:border-blue-500 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100"
       />
+      <select
+        value={agentId ?? ""}
+        onChange={(e) => setAgentId(e.target.value ? Number(e.target.value) : null)}
+        className="mt-2 w-full rounded border border-zinc-200 px-3 py-2 text-sm outline-none focus:border-blue-500 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100"
+      >
+        <option value="">No agent</option>
+        {agents.map((agent) => (
+          <option key={agent.id} value={agent.id}>
+            {agent.name} :{agent.port}
+          </option>
+        ))}
+      </select>
       <div className="mt-2 flex gap-2">
         <button
           type="submit"
@@ -65,7 +81,7 @@ export default function NewTaskForm({ onSubmit }: NewTaskFormProps) {
         </button>
         <button
           type="button"
-          onClick={() => { setIsOpen(false); setTitle(""); setDescription(""); }}
+          onClick={() => { setIsOpen(false); setTitle(""); setDescription(""); setAgentId(null); }}
           className="cursor-pointer rounded px-3 py-1.5 text-sm text-zinc-500 transition-colors hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200"
         >
           Cancel
