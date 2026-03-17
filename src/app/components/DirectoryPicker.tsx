@@ -33,6 +33,8 @@ export default function DirectoryPicker({
   const [directories, setDirectories] = useState<DirectoryEntry[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [editingPath, setEditingPath] = useState(false);
+  const [pathInput, setPathInput] = useState("");
 
   const browse = useCallback(async (path?: string) => {
     setLoading(true);
@@ -92,18 +94,47 @@ export default function DirectoryPicker({
 
       {isOpen && (
         <div className="absolute right-0 top-full z-50 mt-1 w-80 rounded-lg border border-zinc-200 bg-white shadow-lg dark:border-zinc-600 dark:bg-zinc-800">
-          {/* Current path header */}
-          <div className="flex items-center justify-between border-b border-zinc-200 px-3 py-2 dark:border-zinc-600">
-            <p
-              className="truncate text-xs font-medium text-zinc-600 dark:text-zinc-300"
-              title={currentPath}
-            >
-              {currentPath}
-            </p>
+          {/* Current path header — click to edit */}
+          <div className="flex items-center gap-1 border-b border-zinc-200 px-3 py-2 dark:border-zinc-600">
+            {editingPath ? (
+              <form
+                className="flex min-w-0 flex-1 items-center gap-1"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const trimmed = pathInput.trim();
+                  if (trimmed) browse(trimmed);
+                  setEditingPath(false);
+                }}
+              >
+                <input
+                  type="text"
+                  autoFocus
+                  value={pathInput}
+                  onChange={(e) => setPathInput(e.target.value)}
+                  onBlur={() => setEditingPath(false)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Escape") setEditingPath(false);
+                  }}
+                  className="min-w-0 flex-1 rounded border border-blue-400 bg-white px-1.5 py-0.5 text-xs text-zinc-700 outline-none dark:bg-zinc-900 dark:text-zinc-200"
+                />
+              </form>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  setPathInput(currentPath);
+                  setEditingPath(true);
+                }}
+                className="min-w-0 flex-1 cursor-text truncate text-left text-xs font-medium text-zinc-600 hover:text-blue-600 dark:text-zinc-300 dark:hover:text-blue-400"
+                title={`${currentPath} — click to edit`}
+              >
+                {currentPath}
+              </button>
+            )}
             <button
               type="button"
               onClick={handleClose}
-              className="ml-2 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200"
+              className="shrink-0 text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200"
             >
               <X size={14} />
             </button>

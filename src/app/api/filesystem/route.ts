@@ -40,10 +40,19 @@ export async function GET(request: Request) {
 
     // Build parent path (go up one level)
     const parts = targetPath.split(sep).filter(Boolean);
-    const parent =
-      parts.length > 1
-        ? (sep === "\\" ? "" : sep) + parts.slice(0, -1).join(sep)
-        : null;
+    let parent: string | null = null;
+    if (parts.length > 1) {
+      const parentParts = parts.slice(0, -1);
+      if (sep === "\\") {
+        // Windows: ensure drive root ends with backslash (e.g. "C:\")
+        parent =
+          parentParts.length === 1
+            ? parentParts[0] + sep
+            : parentParts.join(sep);
+      } else {
+        parent = sep + parentParts.join(sep);
+      }
+    }
 
     return NextResponse.json({
       current: targetPath,
