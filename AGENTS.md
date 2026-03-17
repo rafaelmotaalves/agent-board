@@ -32,7 +32,7 @@ Always run the unit tests (`bun test`) after making code changes and ensure they
 
 ## Development Workflow
 
-Follow these steps when starting new work, committing changes, and submitting a pull request.
+Always follow these steps when starting new a session:
 
 ### 1. Create a Worktree from the Current Branch
 
@@ -93,6 +93,7 @@ gh pr create \
   --head "$FEATURE_BRANCH" \
   --title "<PR title>" \
   --body "<PR description>"
+  --web
 ```
 
 #### Useful gh pr flags

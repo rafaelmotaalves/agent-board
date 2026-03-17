@@ -8,6 +8,7 @@ import { SLUG_PLANNING } from "../queues";
 import { Task } from "../types";
 import logger from "../logger";
 import { PLAN_SYSTEM_PROMPT, EXECUTE_SYSTEM_PROMPT } from "./const";
+import { log } from "node:console";
 
 interface SessionState {
     type: "planning" | "execution";
@@ -48,6 +49,7 @@ export class AcpCaller implements IAgentCaller {
                 const cb = session?.onDelta;
                 const toolCallback = session?.onToolCall;
                 const toolUpdateCallback = session?.onToolCallUpdate;
+
                 if (params.update.sessionUpdate === "agent_message_chunk") {
                     const content = params.update.content;
                     if (content && "text" in content && typeof content.text === "string") {
