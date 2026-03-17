@@ -1,3 +1,6 @@
+[run]
+bun = true
+
 [test]
 preload = ["./src/test-setup.ts"]
 root = "./src"

@@ -13,9 +13,9 @@
     "postcss.config.mjs"
   ],
   "scripts": {
-    "dev": "bun --bun next dev",
-    "build": "bun --bun next build",
-    "start": "bun --bun next start",
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
     "lint": "eslint",
     "test": "bun test",
     "test:watch": "bun test --watch",
