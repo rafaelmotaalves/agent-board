@@ -93,7 +93,7 @@ export default function TaskDetailModal({ task, agents, onClose, onApprove, onDe
       ref={dialogRef}
       onCancel={onClose}
       onClick={handleBackdropClick}
-      className="m-auto w-full max-w-2xl rounded-xl border border-zinc-200 bg-white p-0 shadow-xl backdrop:bg-black/40 dark:border-zinc-700 dark:bg-zinc-800"
+      className="m-auto w-full max-w-3xl rounded-xl border border-zinc-200 bg-white p-0 shadow-xl backdrop:bg-black/40 dark:border-zinc-700 dark:bg-zinc-800"
     >
       {/* Header */}
       <div className="flex items-start justify-between border-b border-zinc-100 px-5 py-4 dark:border-zinc-700">
