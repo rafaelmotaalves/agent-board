@@ -1,4 +1,4 @@
-# AI Board
+# Agent Board
 
 A kanban-style task board where AI agents autonomously work through tasks. Create tasks, assign them to AI agents, and watch them plan and execute work in real time — with streaming responses and live status updates.
 

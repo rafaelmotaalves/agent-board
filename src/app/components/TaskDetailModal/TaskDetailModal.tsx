@@ -93,7 +93,7 @@ export default function TaskDetailModal({ task, agents, onClose, onApprove, onDe
       ref={dialogRef}
       onCancel={onClose}
       onClick={handleBackdropClick}
-      className="m-auto h-full max-h-screen max-w-3xl rounded-xl border border-zinc-200 bg-white p-0 shadow-xl backdrop:bg-black/40 dark:border-zinc-700 dark:bg-zinc-800"
+      className="m-auto flex h-full max-h-[85vh] w-full max-w-3xl flex-col rounded-xl border border-zinc-200 bg-white p-0 shadow-xl backdrop:bg-black/40 dark:border-zinc-700 dark:bg-zinc-800"
     >
       <ModalHeader
         task={task}

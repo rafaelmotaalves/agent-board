@@ -25,3 +25,38 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Streaming animations */
+@keyframes wordFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes cursorBlink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0; }
+}
+
+@keyframes bounceDot {
+  0%, 80%, 100% { transform: translateY(0); }
+  40%           { transform: translateY(-5px); }
+}
+
+.animate-word-in {
+  display: inline;
+  animation: wordFadeIn 120ms ease-out both;
+}
+
+.animate-cursor-blink {
+  animation: cursorBlink 0.8s step-start infinite;
+}
+
+.animate-bounce-dot {
+  animation: bounceDot 1.2s ease-in-out infinite;
+}

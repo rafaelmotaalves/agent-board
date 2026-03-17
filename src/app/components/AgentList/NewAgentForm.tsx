@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { AgentOptions } from "@/lib/types";
+import ToggleSwitch from "@/app/components/ToggleSwitch";
 
 interface NewAgentFormProps {
   onSubmit: (name: string, port: number, options?: AgentOptions) => Promise<void>;
@@ -87,11 +88,10 @@ export default function NewAgentForm({ onSubmit }: NewAgentFormProps) {
         className="mt-2 w-full rounded border border-zinc-200 px-3 py-2 text-sm outline-none focus:border-blue-500 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100"
       />
       <label className="mt-2 flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-300">
-        <input
-          type="checkbox"
+        <ToggleSwitch
           checked={parallelPlanning}
-          onChange={(e) => setParallelPlanning(e.target.checked)}
-          className="rounded border-zinc-300 dark:border-zinc-600"
+          onChange={setParallelPlanning}
+          label="Parallel planning"
         />
         Parallel planning
       </label>

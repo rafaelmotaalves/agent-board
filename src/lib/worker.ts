@@ -3,6 +3,13 @@ import { Task } from "./types";
 import { AgentPool } from "./agentPool";
 import logger from "./logger";
 import { SLUG_DEVELOPMENT, SLUG_PLANNING } from "./queues";
+import {
+  initStreamingFile,
+  appendStreamingChunk,
+  finalizeStreamingFile,
+  deleteStreamingFile,
+  cleanupAllStreamingFiles,
+} from "./streamingStore";
 
 const log = logger.child({ module: "TaskWorker" });
 
@@ -23,6 +30,8 @@ export class TaskWorker {
 
   start(): void {
     if (this.intervalId) return;
+    // Clean up any leftover streaming files from a previous crash
+    cleanupAllStreamingFiles();
     this.intervalId = setInterval(() => this.tick(), POOL_INTERVAL_MS);
     log.info({ pollIntervalMs: POOL_INTERVAL_MS }, "Worker started");
   }
@@ -135,27 +144,26 @@ export class TaskWorker {
         // Create streaming placeholder so UI updates during generation
         const streamingMsg = this.service.createStreamingAgentMessage(task.id, status);
         let accumulated = "";
-        let lastFlush = Date.now();
-        const FLUSH_INTERVAL_MS = 300;
+        initStreamingFile(streamingMsg.id);
 
         const onDelta = (delta: string) => {
           logger.info({ taskId: task.id, agentId: task.agent_id, status, delta }, "Received message delta from agent");
           accumulated += delta;
-          const now = Date.now();
-          if (now - lastFlush >= FLUSH_INTERVAL_MS) {
-            this.service.updateMessageContent(streamingMsg.id, accumulated, false);
-            lastFlush = now;
-          }
+          // Append only the new delta — no full rewrite
+          appendStreamingChunk(streamingMsg.id, delta);
         };
 
         const response = status === SLUG_PLANNING
           ? await caller.planTask(task, onDelta)
           : await caller.executeTask(task, messages, onDelta);
 
-        // Finalize: use the full response from sendAndWait (authoritative), fall back to accumulated
-        const finalContent = (response || accumulated).trim();
+        // Close the write stream before reading / finalizing
+        await finalizeStreamingFile(streamingMsg.id);
+        // Finalize: write the authoritative content to SQLite, then remove the temp file
+        const finalContent = (accumulated || response || "").trim();
         log.info({ taskId: task.id, agentId: task.agent_id, status }, "Agent responded, finalizing message");
         this.service.updateMessageContent(streamingMsg.id, finalContent, true);
+        deleteStreamingFile(streamingMsg.id);
       }
 
       this.service.update(task.id, { state: "done" });
@@ -183,21 +191,19 @@ export class TaskWorker {
 
         const streamingMsg = this.service.createStreamingAgentMessage(task.id, status);
         let accumulated = "";
-        let lastFlush = Date.now();
-        const FLUSH_INTERVAL_MS = 300;
+        initStreamingFile(streamingMsg.id);
 
         const onDelta = (delta: string) => {
           accumulated += delta;
-          const now = Date.now();
-          if (now - lastFlush >= FLUSH_INTERVAL_MS) {
-            this.service.updateMessageContent(streamingMsg.id, accumulated, false);
-            lastFlush = now;
-          }
+          // Append only the new delta — no full rewrite
+          appendStreamingChunk(streamingMsg.id, delta);
         };
 
         const response = await caller.sendMessage(task, message?.content ?? "", onDelta);
-        const finalContent = (response || accumulated).trim();
+        await finalizeStreamingFile(streamingMsg.id);
+        const finalContent = (accumulated || response || "").trim();
         this.service.updateMessageContent(streamingMsg.id, finalContent, true);
+        deleteStreamingFile(streamingMsg.id);
       }
       
       this.service.update(task.id, { state: "done" });

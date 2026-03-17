@@ -45,7 +45,7 @@ describe("TaskService", () => {
 
   describe("create", () => {
     it("creates a task with title and description", () => {
-      const task = service.create({ title: "My task", description: "Some detail" });
+      const task = service.create({ title: "My task", description: "Some detail", agent_id: 1 });
       expect(task.id).toBeDefined();
       expect(task.title).toBe("My task");
       expect(task.description).toBe("Some detail");
@@ -54,13 +54,13 @@ describe("TaskService", () => {
     });
 
     it("trims title and description", () => {
-      const task = service.create({ title: "  Trim me  ", description: "  also  " });
+      const task = service.create({ title: "  Trim me  ", description: "  also  ", agent_id: 1 });
       expect(task.title).toBe("Trim me");
       expect(task.description).toBe("also");
     });
 
     it("defaults description to empty string", () => {
-      const task = service.create({ title: "No desc" });
+      const task = service.create({ title: "No desc", agent_id: 1 });
       expect(task.description).toBe("");
     });
 
@@ -70,13 +70,13 @@ describe("TaskService", () => {
     });
 
     it("creates a task with a custom status", () => {
-      const task = service.create({ title: "Dev task", status: "development" });
+      const task = service.create({ title: "Dev task", status: "development", agent_id: 1 });
       expect(task.status).toBe("development");
       expect(task.state).toBe("pending");
     });
 
     it("defaults status to planning when not provided", () => {
-      const task = service.create({ title: "Default status" });
+      const task = service.create({ title: "Default status", agent_id: 1 });
       expect(task.status).toBe("planning");
     });
 
@@ -93,9 +93,9 @@ describe("TaskService", () => {
 
   describe("list", () => {
     beforeEach(() => {
-      service.create({ title: "Planning task" });
-      service.create({ title: "Planning task 2" });
-      const dev = service.create({ title: "Dev task" });
+      service.create({ title: "Planning task", agent_id: 1 });
+      service.create({ title: "Planning task 2", agent_id: 1 });
+      const dev = service.create({ title: "Dev task", agent_id: 1 });
       service.update(dev.id, { state: "done" });
       service.update(dev.id, { status: "development" });
     });
@@ -132,7 +132,7 @@ describe("TaskService", () => {
 
   describe("findById", () => {
     it("returns the task when found", () => {
-      const created = service.create({ title: "Find me" });
+      const created = service.create({ title: "Find me", agent_id: 1 });
       const found = service.findById(created.id);
       expect(found?.title).toBe("Find me");
     });
@@ -146,21 +146,21 @@ describe("TaskService", () => {
 
   describe("update", () => {
     it("updates title and description", () => {
-      const task = service.create({ title: "Old title" });
+      const task = service.create({ title: "Old title", agent_id: 1 });
       const updated = service.update(task.id, { title: "New title", description: "New desc" });
       expect(updated.title).toBe("New title");
       expect(updated.description).toBe("New desc");
     });
 
     it("updates state independently", () => {
-      const task = service.create({ title: "Task" });
+      const task = service.create({ title: "Task", agent_id: 1 });
       const updated = service.update(task.id, { state: "in_progress" });
       expect(updated.state).toBe("in_progress");
       expect(updated.status).toBe("planning");
     });
 
     it("resets state to pending when status changes", () => {
-      const task = service.create({ title: "Task" });
+      const task = service.create({ title: "Task", agent_id: 1 });
       service.update(task.id, { state: "done" });
       const moved = service.update(task.id, { status: "development" });
       expect(moved.status).toBe("development");
@@ -168,19 +168,19 @@ describe("TaskService", () => {
     });
 
     it("throws ValidationError when moving queue while state is not done", () => {
-      const task = service.create({ title: "Task" });
+      const task = service.create({ title: "Task", agent_id: 1 });
       // state is 'pending' by default
       expect(() => service.update(task.id, { status: "development" })).toThrow(ValidationError);
     });
 
     it("throws ValidationError when moving queue while state is in_progress", () => {
-      const task = service.create({ title: "Task" });
+      const task = service.create({ title: "Task", agent_id: 1 });
       service.update(task.id, { state: "in_progress" });
       expect(() => service.update(task.id, { status: "development" })).toThrow(ValidationError);
     });
 
     it("does not reset state when status is unchanged", () => {
-      const task = service.create({ title: "Task" });
+      const task = service.create({ title: "Task", agent_id: 1 });
       service.update(task.id, { state: "in_progress" });
       const updated = service.update(task.id, { title: "New title" });
       expect(updated.state).toBe("in_progress");
@@ -191,17 +191,17 @@ describe("TaskService", () => {
     });
 
     it("throws ValidationError for empty title", () => {
-      const task = service.create({ title: "Task" });
+      const task = service.create({ title: "Task", agent_id: 1 });
       expect(() => service.update(task.id, { title: "" })).toThrow(ValidationError);
     });
 
     it("throws ValidationError for invalid status", () => {
-      const task = service.create({ title: "Task" });
+      const task = service.create({ title: "Task", agent_id: 1 });
       expect(() => service.update(task.id, { status: "limbo" })).toThrow(ValidationError);
     });
 
     it("throws ValidationError for invalid state", () => {
-      const task = service.create({ title: "Task" });
+      const task = service.create({ title: "Task", agent_id: 1 });
       expect(() => service.update(task.id, { state: "flying" })).toThrow(ValidationError);
     });
   });
@@ -210,7 +210,7 @@ describe("TaskService", () => {
 
   describe("delete", () => {
     it("deletes an existing task", () => {
-      const task = service.create({ title: "Delete me" });
+      const task = service.create({ title: "Delete me", agent_id: 1 });
       service.delete(task.id);
       expect(service.findById(task.id)).toBeUndefined();
     });
@@ -224,8 +224,8 @@ describe("TaskService", () => {
 
   describe("reset", () => {
     it("deletes all tasks", () => {
-      service.create({ title: "A" });
-      service.create({ title: "B" });
+      service.create({ title: "A", agent_id: 1 });
+      service.create({ title: "B", agent_id: 1 });
       service.reset();
       expect(service.list()).toHaveLength(0);
     });
@@ -235,7 +235,7 @@ describe("TaskService", () => {
 
   describe("addUserMessage", () => {
     it("adds a user message and transitions task to add_message state", () => {
-      const task = service.create({ title: "Task" });
+      const task = service.create({ title: "Task", agent_id: 1 });
       service.update(task.id, { state: "done" });
 
       const msg = service.addUserMessage(task.id, "Please revise the plan");
@@ -249,19 +249,19 @@ describe("TaskService", () => {
     });
 
     it("throws ValidationError when task is not in done state", () => {
-      const task = service.create({ title: "Task" });
+      const task = service.create({ title: "Task", agent_id: 1 });
       // state is 'pending'
       expect(() => service.addUserMessage(task.id, "feedback")).toThrow(ValidationError);
     });
 
     it("throws ValidationError when task is in_progress", () => {
-      const task = service.create({ title: "Task" });
+      const task = service.create({ title: "Task", agent_id: 1 });
       service.update(task.id, { state: "in_progress" });
       expect(() => service.addUserMessage(task.id, "feedback")).toThrow(ValidationError);
     });
 
     it("throws ValidationError when content is empty", () => {
-      const task = service.create({ title: "Task" });
+      const task = service.create({ title: "Task", agent_id: 1 });
       service.update(task.id, { state: "done" });
       expect(() => service.addUserMessage(task.id, "")).toThrow(ValidationError);
       expect(() => service.addUserMessage(task.id, "   ")).toThrow(ValidationError);
@@ -276,7 +276,7 @@ describe("TaskService", () => {
 
   describe("addAgentMessage", () => {
     it("adds an agent message without state restrictions", () => {
-      const task = service.create({ title: "Task" });
+      const task = service.create({ title: "Task", agent_id: 1 });
       service.update(task.id, { state: "in_progress" });
 
       const msg = service.addAgentMessage(task.id, "Here is the plan", "planning");
@@ -289,7 +289,7 @@ describe("TaskService", () => {
     });
 
     it("throws ValidationError when content is empty", () => {
-      const task = service.create({ title: "Task" });
+      const task = service.create({ title: "Task", agent_id: 1 });
       expect(() => service.addAgentMessage(task.id, "", "planning")).toThrow(ValidationError);
     });
 
@@ -302,7 +302,7 @@ describe("TaskService", () => {
 
   describe("listMessages", () => {
     it("returns messages in chronological order", () => {
-      const task = service.create({ title: "Task" });
+      const task = service.create({ title: "Task", agent_id: 1 });
       service.update(task.id, { state: "done" });
 
       service.addUserMessage(task.id, "First message");
@@ -317,7 +317,7 @@ describe("TaskService", () => {
     });
 
     it("returns empty array when no messages", () => {
-      const task = service.create({ title: "Task" });
+      const task = service.create({ title: "Task", agent_id: 1 });
       expect(service.listMessages(task.id)).toHaveLength(0);
     });
 
@@ -330,7 +330,7 @@ describe("TaskService", () => {
 
   describe("recoverInProgressTasks", () => {
     it("marks in_progress tasks as failed with a descriptive reason", () => {
-      const task = service.create({ title: "Stuck task" });
+      const task = service.create({ title: "Stuck task", agent_id: 1 });
       service.update(task.id, { state: "in_progress" });
 
       const count = service.recoverInProgressTasks();
@@ -342,10 +342,10 @@ describe("TaskService", () => {
     });
 
     it("does not affect tasks in other states", () => {
-      const pending = service.create({ title: "Pending" });
-      const done = service.create({ title: "Done" });
+      const pending = service.create({ title: "Pending", agent_id: 1 });
+      const done = service.create({ title: "Done", agent_id: 1 });
       service.update(done.id, { state: "done" });
-      const failed = service.create({ title: "Failed" });
+      const failed = service.create({ title: "Failed", agent_id: 1 });
       service.update(failed.id, { state: "failed", failure_reason: "some error" });
 
       const count = service.recoverInProgressTasks();
@@ -358,20 +358,20 @@ describe("TaskService", () => {
     });
 
     it("returns the count of recovered tasks", () => {
-      service.create({ title: "Task 1" });
-      const t2 = service.create({ title: "Task 2" });
+      service.create({ title: "Task 1", agent_id: 1 });
+      const t2 = service.create({ title: "Task 2", agent_id: 1 });
       service.update(t2.id, { state: "in_progress" });
-      const t3 = service.create({ title: "Task 3" });
+      const t3 = service.create({ title: "Task 3", agent_id: 1 });
       service.update(t3.id, { state: "in_progress" });
 
       expect(service.recoverInProgressTasks()).toBe(2);
     });
 
     it("recovers tasks across different queues", () => {
-      const planning = service.create({ title: "Planning task" });
+      const planning = service.create({ title: "Planning task", agent_id: 1 });
       service.update(planning.id, { state: "in_progress" });
 
-      const dev = service.create({ title: "Dev task" });
+      const dev = service.create({ title: "Dev task", agent_id: 1 });
       service.update(dev.id, { state: "done" });
       service.update(dev.id, { status: "development" });
       service.update(dev.id, { state: "in_progress" });
@@ -384,7 +384,7 @@ describe("TaskService", () => {
     });
 
     it("returns 0 when no tasks are in_progress", () => {
-      service.create({ title: "Pending task" });
+      service.create({ title: "Pending task", agent_id: 1 });
       expect(service.recoverInProgressTasks()).toBe(0);
     });
   });

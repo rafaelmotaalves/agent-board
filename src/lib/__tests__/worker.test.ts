@@ -1,10 +1,22 @@
-import { describe, it, expect, beforeEach, afterEach, jest } from "bun:test";
+import { describe, it, expect, beforeEach, afterEach, jest, mock } from "bun:test";
 import { Database } from "bun:sqlite";
 import { TaskService } from "@/lib/taskService";
 import { TaskWorker } from "@/lib/worker";
 import type { AgentPool } from "@/lib/agentPool";
 import type { IAgentCaller } from "@/lib/agentCaller";
 import type { AgentOptions } from "@/lib/types";
+
+// Mock the streaming store so tests don't perform real file I/O
+mock.module("@/lib/streamingStore", () => ({
+  initStreamingFile: () => {},
+  appendStreamingChunk: () => {},
+  finalizeStreamingFile: () => Promise.resolve(),
+  deleteStreamingFile: () => {},
+  cleanupAllStreamingFiles: () => {},
+  streamingFileExists: () => false,
+  getStreamingFilePath: () => "",
+  readStreamingContent: () => null,
+}));
 
 const AGENT_DELAY_MS = 10000;
 

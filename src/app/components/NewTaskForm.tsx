@@ -12,7 +12,7 @@ export default function NewTaskForm({ agents, onSubmit }: NewTaskFormProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [agentId, setAgentId] = useState<number | null>(null);
+  const [agentId, setAgentId] = useState<number | null>(agents.length > 0 ? agents[0].id : null);
   const [submitting, setSubmitting] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -24,7 +24,7 @@ export default function NewTaskForm({ agents, onSubmit }: NewTaskFormProps) {
       await onSubmit(title.trim(), description.trim(), agentId);
       setTitle("");
       setDescription("");
-      setAgentId(null);
+      setAgentId(agents.length > 0 ? agents[0].id : null);
       setIsOpen(false);
     } finally {
       setSubmitting(false);
@@ -81,7 +81,7 @@ export default function NewTaskForm({ agents, onSubmit }: NewTaskFormProps) {
         </button>
         <button
           type="button"
-          onClick={() => { setIsOpen(false); setTitle(""); setDescription(""); setAgentId(null); }}
+          onClick={() => { setIsOpen(false); setTitle(""); setDescription(""); setAgentId(agents.length > 0 ? agents[0].id : null); }}
           className="cursor-pointer rounded px-3 py-1.5 text-sm text-zinc-500 transition-colors hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200"
         >
           Cancel
