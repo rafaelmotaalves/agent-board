@@ -1,6 +1,6 @@
 import { Database } from "bun:sqlite";
 import { Task, TaskState, isValidState } from "@/lib/types";
-import { isValidQueue } from "@/lib/queues";
+import { isValidQueue, SLUG_DONE } from "@/lib/queues";
 import { getDb } from "./db";
 
 export interface CreateTaskInput {
@@ -107,11 +107,14 @@ export class TaskService {
     }
 
     // Moving between queues resets state to pending
-    const state: TaskState = statusChanged
-      ? "pending"
-      : input.state !== undefined
+
+    let state: TaskState = input.state !== undefined
       ? (input.state as TaskState)
       : existing.state;
+
+    if (statusChanged && input.state != SLUG_DONE) {
+      input.state = "pending";
+    }
 
     if (!title) throw new ValidationError("Title is required");
     if (!isValidQueue(status)) throw new ValidationError("Invalid status");

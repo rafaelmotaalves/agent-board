@@ -32,11 +32,6 @@ export default function TaskCard({ task, queue, assignedAgent, onApprove, onDele
           {task.description}
         </p>
       )}
-      {task.execution && (
-        <p className="mt-1 line-clamp-2 text-xs text-zinc-400 dark:text-zinc-500">
-          {task.execution.replace(/#+\s/g, "").replace(/[*_`]/g, "")}
-        </p>
-      )}
       {assignedAgent && (
         <p className="mt-1 flex items-center gap-1 text-xs text-zinc-400 dark:text-zinc-500">
           <span className="inline-block h-1.5 w-1.5 rounded-full bg-green-400" aria-hidden="true" />
