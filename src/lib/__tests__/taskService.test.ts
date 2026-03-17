@@ -5,6 +5,7 @@ import { TaskService, ValidationError, TaskNotFoundError } from "@/lib/taskServi
 function createDb(): Database {
   const db = new Database(":memory:");
   db.exec("PRAGMA journal_mode = WAL");
+  db.exec("PRAGMA foreign_keys = ON");
   db.exec(`
     CREATE TABLE tasks (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -17,6 +18,15 @@ function createDb(): Database {
       state TEXT NOT NULL DEFAULT 'pending',
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )
+  `);
+  db.exec(`
+    CREATE TABLE task_messages (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+      content TEXT NOT NULL,
+      task_state_at_creation TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
     )
   `);
   return db;
@@ -184,6 +194,74 @@ describe("TaskService", () => {
       service.create({ title: "B" });
       service.reset();
       expect(service.list()).toHaveLength(0);
+    });
+  });
+
+  // ── addMessage ───────────────────────────────────────────────────────────────
+
+  describe("addMessage", () => {
+    it("adds a message and transitions task to add_message state", () => {
+      const task = service.create({ title: "Task" });
+      service.update(task.id, { state: "done" });
+
+      const msg = service.addMessage(task.id, "Please revise the plan");
+      expect(msg.content).toBe("Please revise the plan");
+      expect(msg.task_state_at_creation).toBe("done");
+      expect(msg.task_id).toBe(task.id);
+
+      const updated = service.findById(task.id)!;
+      expect(updated.state).toBe("add_message");
+    });
+
+    it("throws ValidationError when task is not in done state", () => {
+      const task = service.create({ title: "Task" });
+      // state is 'pending'
+      expect(() => service.addMessage(task.id, "feedback")).toThrow(ValidationError);
+    });
+
+    it("throws ValidationError when task is in_progress", () => {
+      const task = service.create({ title: "Task" });
+      service.update(task.id, { state: "in_progress" });
+      expect(() => service.addMessage(task.id, "feedback")).toThrow(ValidationError);
+    });
+
+    it("throws ValidationError when content is empty", () => {
+      const task = service.create({ title: "Task" });
+      service.update(task.id, { state: "done" });
+      expect(() => service.addMessage(task.id, "")).toThrow(ValidationError);
+      expect(() => service.addMessage(task.id, "   ")).toThrow(ValidationError);
+    });
+
+    it("throws TaskNotFoundError for missing task", () => {
+      expect(() => service.addMessage(999, "hello")).toThrow(TaskNotFoundError);
+    });
+  });
+
+  // ── listMessages ─────────────────────────────────────────────────────────────
+
+  describe("listMessages", () => {
+    it("returns messages in chronological order", () => {
+      const task = service.create({ title: "Task" });
+      service.update(task.id, { state: "done" });
+
+      service.addMessage(task.id, "First message");
+      // put back to done to allow second message
+      service.update(task.id, { state: "done" });
+      service.addMessage(task.id, "Second message");
+
+      const msgs = service.listMessages(task.id);
+      expect(msgs).toHaveLength(2);
+      expect(msgs[0].content).toBe("First message");
+      expect(msgs[1].content).toBe("Second message");
+    });
+
+    it("returns empty array when no messages", () => {
+      const task = service.create({ title: "Task" });
+      expect(service.listMessages(task.id)).toHaveLength(0);
+    });
+
+    it("throws TaskNotFoundError for missing task", () => {
+      expect(() => service.listMessages(999)).toThrow(TaskNotFoundError);
     });
   });
 });

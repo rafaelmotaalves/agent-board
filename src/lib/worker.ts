@@ -7,41 +7,23 @@ import { SLUG_DEVELOPMENT, SLUG_PLANNING } from "./queues";
 const log = logger.child({ module: "TaskWorker" });
 
 const PROCESSABLE_STATUSES = [SLUG_PLANNING, SLUG_DEVELOPMENT] as const;
-
-export interface WorkerConfig {
-  pollIntervalMs: number;
-  processingTimeMs: number;
-}
-
-const DEFAULT_CONFIG: WorkerConfig = {
-  pollIntervalMs: 2000,
-  processingTimeMs: 10000,
-};
-
+const POOL_INTERVAL_MS = 1000;
 export class TaskWorker {
   private intervalId: ReturnType<typeof setInterval> | null = null;
   private readonly processing = new Map<string, number>(); // status → taskId
-  private readonly config: WorkerConfig;
-  private readonly agentPool: AgentPool | null;
+  private readonly agentPool: AgentPool;
 
   constructor(
     private readonly service: TaskService,
-    agentPoolOrConfig?: AgentPool | Partial<WorkerConfig>,
-    config?: Partial<WorkerConfig>,
+    agentPool: AgentPool,
   ) {
-    if (agentPoolOrConfig instanceof AgentPool) {
-      this.agentPool = agentPoolOrConfig;
-      this.config = { ...DEFAULT_CONFIG, ...config };
-    } else {
-      this.agentPool = null;
-      this.config = { ...DEFAULT_CONFIG, ...agentPoolOrConfig };
-    }
+    this.agentPool = agentPool;
   }
 
   start(): void {
     if (this.intervalId) return;
-    this.intervalId = setInterval(() => this.tick(), this.config.pollIntervalMs);
-    log.info({ pollIntervalMs: this.config.pollIntervalMs }, "Worker started");
+    this.intervalId = setInterval(() => this.tick(), POOL_INTERVAL_MS);
+    log.info({ pollIntervalMs: POOL_INTERVAL_MS }, "Worker started");
   }
 
   stop(): void {
@@ -69,6 +51,13 @@ export class TaskWorker {
         continue;
       }
 
+      // Check for add_message tasks first (higher priority than new pending tasks)
+      const addMessageTask = this.service.findNextAddMessage(status);
+      if (addMessageTask) {
+        this.processAddMessageTask(addMessageTask, status);
+        continue;
+      }
+
       const pending = this.service.findNextPending(status);
 
       if (!pending) {
@@ -86,7 +75,7 @@ export class TaskWorker {
     log.info({ taskId: task.id, status, title: task.title }, "Task picked up — processing started");
 
     try {
-      if (this.agentPool && task.agent_id) {
+      if (task.agent_id) {
         const caller = await this.agentPool.get(task.agent_id);
         log.info({ taskId: task.id, agentId: task.agent_id, status }, "Calling agent");
 
@@ -97,15 +86,43 @@ export class TaskWorker {
           const execution = await caller.executeTask(task);
           this.service.update(task.id, { state: "done", execution });
         }
-      } else {
-        await new Promise<void>((resolve) => setTimeout(resolve, this.config.processingTimeMs));
-        this.service.update(task.id, { state: "done" });
       }
 
       log.info({ taskId: task.id, status }, "Task completed");
     } catch (err: unknown) {
       this.service.update(task.id, { state: "failed" });
       log.error({ taskId: task.id, status, err }, "Task processing failed");
+    } finally {
+      this.processing.delete(status);
+    }
+  }
+
+  private async processAddMessageTask(task: Task, status: string): Promise<void> {
+    this.processing.set(status, task.id);
+    this.service.update(task.id, { state: "in_progress" });
+    log.info({ taskId: task.id, status, title: task.title }, "Task message received — re-processing");
+
+    try {
+      const message = this.service.getLastMessage(task.id);
+
+      if (task.agent_id) {
+        const caller = await this.agentPool.get(task.agent_id);
+        log.info({ taskId: task.id, agentId: task.agent_id, status }, "Calling agent for message revision");
+
+        if (status === SLUG_PLANNING) {
+          const response = await caller.sendMessage(task, message?.content ?? "");
+          this.service.addMessage(task.id, response);
+        } else {
+          const response = await caller.sendMessage(task, message?.content ?? "");
+          this.service.addMessage(task.id, response);
+        }
+      }
+      
+      this.service.update(task.id, { state: "done" });
+      log.info({ taskId: task.id, status }, "Task message revision completed");
+    } catch (err: unknown) {
+      this.service.update(task.id, { state: "failed" });
+      log.error({ taskId: task.id, status, err }, "Task message revision failed");
     } finally {
       this.processing.delete(status);
     }

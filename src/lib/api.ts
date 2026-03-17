@@ -1,4 +1,4 @@
-import type { Task, Agent } from "@/lib/types";
+import type { Task, Agent, TaskMessage } from "@/lib/types";
 
 export async function fetchTasks(): Promise<Task[]> {
   const res = await fetch("/api/tasks");
@@ -59,4 +59,23 @@ export async function createAgent(name: string, port: number): Promise<Agent> {
 export async function deleteAgent(id: number): Promise<void> {
   const res = await fetch(`/api/agents/${id}`, { method: "DELETE" });
   if (!res.ok) throw new Error("Failed to delete agent");
+}
+
+export async function fetchTaskMessages(taskId: number): Promise<TaskMessage[]> {
+  const res = await fetch(`/api/tasks/${taskId}/messages`);
+  if (!res.ok) throw new Error("Failed to fetch task messages");
+  return res.json();
+}
+
+export async function addTaskMessage(taskId: number, content: string): Promise<TaskMessage> {
+  const res = await fetch(`/api/tasks/${taskId}/messages`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ content }),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error ?? "Failed to add message");
+  }
+  return res.json();
 }

@@ -6,6 +6,7 @@ import { TaskWorker } from "@/lib/worker";
 function createDb(): Database {
   const db = new Database(":memory:");
   db.exec("PRAGMA journal_mode = WAL");
+  db.exec("PRAGMA foreign_keys = ON");
   db.exec(`
     CREATE TABLE tasks (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -18,6 +19,15 @@ function createDb(): Database {
       state TEXT NOT NULL DEFAULT 'pending',
       created_at TEXT NOT NULL DEFAULT (datetime('now')),
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )
+  `);
+  db.exec(`
+    CREATE TABLE task_messages (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+      content TEXT NOT NULL,
+      task_state_at_creation TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
     )
   `);
   return db;
@@ -160,6 +170,49 @@ describe("TaskWorker", () => {
       jest.advanceTimersByTime(100);
 
       expect(worker.getProcessingTasks().has("planning")).toBe(true);
+    });
+  });
+
+  describe("add_message processing", () => {
+    it("picks up an add_message task over a pending task (priority)", () => {
+      // Create a pending task
+      service.create({ title: "Pending plan" });
+
+      // Create another task that is in add_message state
+      const msgTask = service.create({ title: "Message task" });
+      service.update(msgTask.id, { state: "done" });
+      service.addMessage(msgTask.id, "Please revise");
+
+      worker.tick();
+
+      const updated = service.findById(msgTask.id)!;
+      expect(updated.state).toBe("in_progress");
+      expect(worker.getProcessingTasks().get("planning")).toBe(msgTask.id);
+    });
+
+    it("sets add_message task to in_progress when picked up", () => {
+      const task = service.create({ title: "Plan me" });
+      service.update(task.id, { state: "done" });
+      service.addMessage(task.id, "Feedback here");
+
+      worker.tick();
+
+      const updated = service.findById(task.id)!;
+      expect(updated.state).toBe("in_progress");
+    });
+
+    it("sets add_message task to done after processingTimeMs", () => {
+      const task = service.create({ title: "Revise me" });
+      service.update(task.id, { state: "done" });
+      service.addMessage(task.id, "Some feedback");
+
+      worker.tick();
+      expect(service.findById(task.id)!.state).toBe("in_progress");
+
+      jest.advanceTimersByTime(10000);
+
+      expect(service.findById(task.id)!.state).toBe("done");
+      expect(worker.getProcessingTasks().has("planning")).toBe(false);
     });
   });
 });
