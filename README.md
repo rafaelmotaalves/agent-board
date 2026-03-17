@@ -67,7 +67,10 @@ Pass `--config` when starting the board to pre-register agents from a JSON file 
       "type": "copilot_cli_sdk",
       "port": 8000,
       "folder": "/path/to/workspace",
-      "options": { "parallel_planning": true }
+      "options": {
+        "parallel_planning": true,
+        "parallel_development": true
+      }
     },
     {
       "name": "My ACP Agent",
@@ -78,6 +81,40 @@ Pass `--config` when starting the board to pre-register agents from a JSON file 
   ]
 }
 ```
+
+#### Agent fields
+
+| Field | Required | Description |
+|-------|----------|-------------|
+| `name` | Yes | Display name for the agent |
+| `type` | No | `copilot_cli_sdk` (default) or `acp` |
+| `port` | Yes (CLI) | Port the Copilot CLI headless agent listens on |
+| `command` | Yes (ACP) | Shell command to start the ACP agent |
+| `folder` | Yes | Working directory the agent operates in |
+| `options` | No | Agent behavior settings (see below) |
+
+#### Parallel execution options
+
+By default each agent processes **one task at a time** per queue. If you assign multiple tasks to the same agent, they run sequentially. You can enable parallel execution per queue through the `options` object:
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `parallel_planning` | `false` | Allow the agent to plan multiple tasks concurrently |
+| `parallel_development` | `false` | Allow the agent to develop multiple tasks concurrently |
+
+For example, to let an agent handle several planning tasks at once but keep development sequential:
+
+```json
+{
+  "name": "My Agent",
+  "type": "copilot_cli_sdk",
+  "port": 8000,
+  "folder": "/path/to/workspace",
+  "options": { "parallel_planning": true }
+}
+```
+
+> **Note:** Parallel execution works best when the agent's underlying model supports concurrent requests. Enable it only if your agent can handle the additional load.
 
 ### Using Copilot CLI
 To use Copilot CLI as an agent you can use either the `copilot_cli_sdk` or `acp`. For the `copilot_cli_sdk`, execute:
