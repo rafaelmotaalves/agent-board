@@ -89,24 +89,24 @@ copilot --headless --port 9090
 And then add the agent with the corresponding port:
 
 ```json
-    {
-      "name": "My Copilot Agent",
-      "type": "copilot_cli_sdk",
-      "port": "9090",
-      "folder": "/path/to/project"
-    }
+{
+  "name": "My Copilot Agent",
+  "type": "copilot_cli_sdk",
+  "port": "9090",
+  "folder": "/path/to/project"
+}
 ```
 
 To use the `acp` method, you can just add:
 
 
 ```json
-    {
-      "name": "My ACP Agent",
-      "type": "acp",
-      "command": "copilot --acp",
-      "folder": "/path/to/project"
-    }
+{
+  "name": "My ACP Agent",
+  "type": "acp",
+  "command": "copilot --acp",
+  "folder": "/path/to/project"
+}
 ```
 
 ## Contributing
