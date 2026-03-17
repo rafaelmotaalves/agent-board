@@ -45,17 +45,33 @@ function ToolCallCard({ toolCall }: { toolCall: ToolCall }) {
     // keep as raw string
   }
 
+  const commandPreview =
+    parsedInput &&
+    typeof parsedInput === "object" &&
+    typeof (parsedInput as Record<string, unknown>).command === "string"
+      ? (parsedInput as Record<string, unknown>).command as string
+      : null;
+
   return (
     <div className="rounded-lg border border-zinc-200 bg-white px-3 py-2 dark:border-zinc-700 dark:bg-zinc-800/50">
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 min-w-0">
           <ToolCallIcon kind={toolCall.kind} className="h-3.5 w-3.5 flex-shrink-0 text-zinc-400" />
-          <span className="truncate text-sm font-medium text-zinc-800 dark:text-zinc-100">
+          <span className="truncate text-sm font-medium text-zinc-800 dark:text-zinc-100" title={toolCall.tool_name}>
             {toolCall.tool_name}
           </span>
         </div>
         <StatusBadge status={toolCall.status} />
       </div>
+
+      {commandPreview && (
+        <p
+          className="mt-1 truncate rounded bg-zinc-50 px-2 py-1 font-mono text-xs text-zinc-600 dark:bg-zinc-900 dark:text-zinc-300"
+          title={commandPreview}
+        >
+          $ {commandPreview}
+        </p>
+      )}
 
       {parsedInput && (
         <details className="mt-2">
