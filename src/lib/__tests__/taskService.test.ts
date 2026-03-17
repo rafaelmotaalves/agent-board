@@ -388,4 +388,198 @@ describe("TaskService", () => {
       expect(service.recoverInProgressTasks()).toBe(0);
     });
   });
+
+  // ── findNextPending ────────────────────────────────────────────────────────
+
+  describe("findNextPending", () => {
+    it("returns the oldest pending task for the given status", () => {
+      service.create({ title: "First", agent_id: 1 });
+      service.create({ title: "Second", agent_id: 1 });
+
+      const next = service.findNextPending("planning");
+      expect(next?.title).toBe("First");
+    });
+
+    it("returns undefined when no pending tasks exist for the status", () => {
+      const task = service.create({ title: "Task", agent_id: 1 });
+      service.update(task.id, { state: "in_progress" });
+
+      expect(service.findNextPending("planning")).toBeUndefined();
+    });
+
+    it("ignores tasks in other states (in_progress, done, failed)", () => {
+      const t1 = service.create({ title: "In prog", agent_id: 1 });
+      service.update(t1.id, { state: "in_progress" });
+      const t2 = service.create({ title: "Done", agent_id: 1 });
+      service.update(t2.id, { state: "done" });
+
+      expect(service.findNextPending("planning")).toBeUndefined();
+    });
+
+    it("throws ValidationError for invalid status", () => {
+      expect(() => service.findNextPending("invalid")).toThrow(ValidationError);
+    });
+  });
+
+  // ── findNextAddMessage ────────────────────────────────────────────────────
+
+  describe("findNextAddMessage", () => {
+    it("returns a task in add_message state for the given status", () => {
+      const task = service.create({ title: "Task", agent_id: 1 });
+      service.update(task.id, { state: "done" });
+      service.addUserMessage(task.id, "Please revise");
+
+      const next = service.findNextAddMessage("planning");
+      expect(next?.id).toBe(task.id);
+    });
+
+    it("returns undefined when no add_message tasks exist", () => {
+      service.create({ title: "Pending", agent_id: 1 });
+      expect(service.findNextAddMessage("planning")).toBeUndefined();
+    });
+
+    it("ignores add_message tasks in other queues", () => {
+      const devTask = service.create({ title: "Dev", agent_id: 1 });
+      service.update(devTask.id, { state: "done" });
+      service.update(devTask.id, { status: "development" });
+      service.update(devTask.id, { state: "done" });
+      service.addUserMessage(devTask.id, "Revise dev");
+
+      expect(service.findNextAddMessage("planning")).toBeUndefined();
+      expect(service.findNextAddMessage("development")?.id).toBe(devTask.id);
+    });
+
+    it("throws ValidationError for invalid status", () => {
+      expect(() => service.findNextAddMessage("invalid")).toThrow(ValidationError);
+    });
+  });
+
+  // ── addUserMessage from failed state ───────────────────────────────────────
+
+  describe("addUserMessage - failed state", () => {
+    it("allows adding a message when task is in failed state", () => {
+      const task = service.create({ title: "Task", agent_id: 1 });
+      service.update(task.id, { state: "failed", failure_reason: "error occurred" });
+
+      const msg = service.addUserMessage(task.id, "Please retry");
+      expect(msg.content).toBe("Please retry");
+      expect(msg.role).toBe("user");
+
+      const updated = service.findById(task.id)!;
+      expect(updated.state).toBe("add_message");
+      expect(updated.failure_reason).toBeNull();
+    });
+  });
+
+  // ── createStreamingAgentMessage ────────────────────────────────────────────
+
+  describe("createStreamingAgentMessage", () => {
+    it("creates a streaming placeholder message with is_complete=0", () => {
+      const task = service.create({ title: "Task", agent_id: 1 });
+      const msg = service.createStreamingAgentMessage(task.id, "planning");
+
+      expect(msg.task_id).toBe(task.id);
+      expect(msg.role).toBe("agent");
+      expect(msg.content).toBe("");
+      expect(msg.is_complete).toBe(0);
+      expect(msg.task_state_at_creation).toBe("planning");
+    });
+
+    it("throws TaskNotFoundError for missing task", () => {
+      expect(() => service.createStreamingAgentMessage(999, "planning")).toThrow(TaskNotFoundError);
+    });
+  });
+
+  // ── updateMessageContent ───────────────────────────────────────────────────
+
+  describe("updateMessageContent", () => {
+    it("updates the content of a streaming message", () => {
+      const task = service.create({ title: "Task", agent_id: 1 });
+      const msg = service.createStreamingAgentMessage(task.id, "planning");
+
+      service.updateMessageContent(msg.id, "Updated content", false);
+
+      const messages = service.listMessages(task.id);
+      const updated = messages.find((m) => m.id === msg.id)!;
+      expect(updated.content).toBe("Updated content");
+      expect(updated.is_complete).toBe(0);
+    });
+
+    it("marks message as complete when is_complete is true", () => {
+      const task = service.create({ title: "Task", agent_id: 1 });
+      const msg = service.createStreamingAgentMessage(task.id, "planning");
+
+      service.updateMessageContent(msg.id, "Final content", true);
+
+      const messages = service.listMessages(task.id);
+      const updated = messages.find((m) => m.id === msg.id)!;
+      expect(updated.content).toBe("Final content");
+      expect(updated.is_complete).toBe(1);
+    });
+  });
+
+  // ── getLastMessage ─────────────────────────────────────────────────────────
+
+  describe("getLastMessage", () => {
+    it("returns the most recent message for a task", () => {
+      const task = service.create({ title: "Task", agent_id: 1 });
+      service.update(task.id, { state: "done" });
+      service.addUserMessage(task.id, "First");
+      service.update(task.id, { state: "done" });
+      service.addUserMessage(task.id, "Second");
+
+      // getLastMessage should return one of the two messages
+      const msgs = service.listMessages(task.id);
+      expect(msgs).toHaveLength(2);
+      const last = service.getLastMessage(task.id);
+      expect(last).toBeDefined();
+      expect(msgs.map((m) => m.id)).toContain(last!.id);
+    });
+
+    it("returns undefined when task has no messages", () => {
+      const task = service.create({ title: "Task", agent_id: 1 });
+      expect(service.getLastMessage(task.id)).toBeUndefined();
+    });
+
+    it("throws TaskNotFoundError for missing task", () => {
+      expect(() => service.getLastMessage(999)).toThrow(TaskNotFoundError);
+    });
+  });
+
+  // ── completed_at ──────────────────────────────────────────────────────────
+
+  describe("completed_at", () => {
+    it("sets completed_at when task moves to done queue", () => {
+      const task = service.create({ title: "Task", agent_id: 1 });
+      service.update(task.id, { state: "done" });
+      service.update(task.id, { status: "development" });
+      service.update(task.id, { state: "done" });
+
+      const updated = service.update(task.id, { status: "done" });
+      expect(updated.completed_at).not.toBeNull();
+    });
+
+    it("clears completed_at when task moves out of done queue", () => {
+      const task = service.create({ title: "Task", agent_id: 1 });
+      service.update(task.id, { state: "done" });
+      service.update(task.id, { status: "development" });
+      service.update(task.id, { state: "done" });
+      service.update(task.id, { status: "done" });
+
+      // Task is in done queue with completed_at set
+      const doneTask = service.findById(task.id)!;
+      expect(doneTask.completed_at).not.toBeNull();
+      expect(doneTask.status).toBe("done");
+
+      // Set state to done so we can move it out of the done queue
+      service.update(task.id, { state: "done" });
+      const updated = service.update(task.id, { status: "development" });
+      expect(updated.completed_at).toBeNull();
+    });
+
+    it("is null for tasks not yet in done queue", () => {
+      const task = service.create({ title: "Task", agent_id: 1 });
+      expect(task.completed_at).toBeNull();
+    });
+  });
 });
