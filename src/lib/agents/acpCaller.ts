@@ -2,7 +2,7 @@ import { readFile, writeFile, mkdir } from "node:fs/promises";
 import { dirname } from "node:path";
 import { spawn, type Subprocess, FileSink } from "bun";
 import { ClientSideConnection, ndJsonStream, PROTOCOL_VERSION } from "@agentclientprotocol/sdk";
-import type { Agent, Client, SessionId } from "@agentclientprotocol/sdk";
+import type { Agent, Client, RequestPermissionRequest, SessionId } from "@agentclientprotocol/sdk";
 import { DeltaCallback, AgentCallbacks, IAgentCaller, OnToolCall, OnToolCallUpdate } from "./agentCaller";
 import { SLUG_PLANNING } from "../queues";
 import { Task } from "../types";
@@ -35,42 +35,13 @@ export class AcpCaller implements IAgentCaller {
         return () => ({
             requestPermission: async (params) => {
                 const sessionType = this.sessions.get(params.sessionId)?.type;
-                if (sessionType === "planning") {
-                    const rejectOption = params.options.find((o) => o.kind === "reject_once" || o.kind === "reject_always");
-                    const optionId = rejectOption?.optionId ?? params.options[0].optionId;
-                    return { outcome: { outcome: "selected" as const, optionId } };
+                
+                if (sessionType === "planning" && 
+                    ["edit", "delete", "move"].includes(params.toolCall.kind?.toString() ?? "")) {
+                    return denyAll(params);
                 }
-                if (sessionType === "execution") {
-                    const allowOption = params.options.find((o) => o.kind === "allow_once" || o.kind === "allow_always");
-                    const optionId = allowOption?.optionId ?? params.options[0].optionId;
-                    return { outcome: { outcome: "selected" as const, optionId } };
-                }
-                // Deny by default for unknown session types
-                const rejectOption = params.options.find((o) => o.kind === "reject_once" || o.kind === "reject_always");
-                const optionId = rejectOption?.optionId ?? params.options[0].optionId;
-                return { outcome: { outcome: "selected" as const, optionId } };
-            },
-            readTextFile: async (params) => {
-                logger.debug({ path: params.path }, "ACP agent reading file");
-                const lines = await readFile(params.path, "utf-8");
-                let content = lines;
-                if (params.line != null) {
-                    const allLines = lines.split("\n");
-                    const start = params.line - 1;
-                    const end = params.limit != null ? start + params.limit : allLines.length;
-                    content = allLines.slice(start, end).join("\n");
-                }
-                return { content };
-            },
-            writeTextFile: async (params) => {
-                if (this.sessions.get(params.sessionId)?.type !== "execution") {
-                    logger.warn({ path: params.path, sessionId: params.sessionId }, "ACP agent attempted to write file outside execution mode — blocked");
-                    throw new Error(`File writes are not allowed outside execution mode (attempted: ${params.path})`);
-                }
-                logger.debug({ path: params.path }, "ACP agent writing file");
-                await mkdir(dirname(params.path), { recursive: true });
-                await writeFile(params.path, params.content, "utf-8");
-                return {};
+
+                return allowAll(params);
             },
             sessionUpdate: async (params) => {
                 const session = this.sessions.get(params.sessionId);
@@ -107,6 +78,14 @@ export class AcpCaller implements IAgentCaller {
                         kind: update.kind as string,
                     });
                     logger.info({ sessionId: params.sessionId, toolCallUpdate: params.update }, "Tool call update");
+                }
+                else if (params.update.sessionUpdate == "usage_update")
+                {
+                    logger.info({ sessionId: params.sessionId, usage: params.update.used }, "Usage update from ACP agent");
+                }
+                else if (params.update.sessionUpdate == "session_info_update")
+                {
+                    logger.info({ sessionId: params.sessionId, sessionInfo: params.update.sessionUpdate }, "Session info update from ACP agent");
                 }
             },
         });
@@ -284,3 +263,19 @@ Messages: ${messages.join("\n\n")}`;
         return await this.sendPrompt(sessionId, message, callbacks);
     }
 }
+function denyAll(params: RequestPermissionRequest) {
+    const rejectOption = params.options
+        .find((o) => o.kind === "reject_always");
+
+    const optionId = rejectOption?.optionId ?? params.options[0].optionId;
+    return { outcome: { outcome: "selected" as const, optionId } };
+}
+
+function allowAll(params: RequestPermissionRequest) {
+    const allowOption = params.options
+        .find((o) => o.kind === "allow_always");
+
+    const optionId = allowOption?.optionId ?? params.options[0].optionId;
+    return { outcome: { outcome: "selected" as const, optionId } };
+}
+

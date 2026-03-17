@@ -299,6 +299,24 @@ describe("AgentService", () => {
       const updated = service.update(agent.id, { name: "  trimmed  " });
       expect(updated.name).toBe("trimmed");
     });
+
+    it("throws AgentValidationError when updating with an empty folder", () => {
+      const agent = service.create({ name: "foldertest", port: 8800, folder: "/work" });
+      expect(() => service.update(agent.id, { folder: "" })).toThrow(AgentValidationError);
+      expect(() => service.update(agent.id, { folder: "   " })).toThrow(AgentValidationError);
+    });
+
+    it("updates agent folder", () => {
+      const agent = service.create({ name: "folderupd", port: 8900, folder: "/work" });
+      const updated = service.update(agent.id, { folder: "/new/dir" });
+      expect(updated.folder).toBe("/new/dir");
+    });
+
+    it("preserves existing folder when not provided in update", () => {
+      const agent = service.create({ name: "keepfolder", port: 8950, folder: "/original" });
+      const updated = service.update(agent.id, { name: "renamed" });
+      expect(updated.folder).toBe("/original");
+    });
   });
 
   // ── duplicate port ─────────────────────────────────────────────────────────
