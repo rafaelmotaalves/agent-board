@@ -29,5 +29,6 @@ interface ToolCallIconProps {
 
 export default function ToolCallIcon({ kind, className = "h-3.5 w-3.5" }: ToolCallIconProps) {
   const Icon = getToolIcon(kind);
+  // eslint-disable-next-line react-hooks/static-components -- Icon is a stable lookup, not a dynamic component creation
   return <Icon className={className} />;
 }

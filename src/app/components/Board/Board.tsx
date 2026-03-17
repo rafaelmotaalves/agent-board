@@ -179,7 +179,7 @@ export default function Board() {
         <main className="flex flex-1 gap-4 overflow-x-auto p-6">
           {QUEUES.map((queue) => {
             const queueTasks = tasks.filter((t) => t.status === queue.slug);
-            const archivedCount = queue.slug === SLUG_DONE && !showArchived
+            const _archivedCount = queue.slug === SLUG_DONE && !showArchived
               ? tasks.filter((t) => t.status === SLUG_DONE).length  // when not showing archived, we need a separate count
               : undefined;
             return (

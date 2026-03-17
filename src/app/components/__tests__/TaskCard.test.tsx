@@ -25,7 +25,7 @@ function makeTask(overrides: Partial<Task> = {}): Task {
 }
 
 const planningQueue: Queue = { slug: SLUG_PLANNING, label: "Planning", order: 0 };
-const developmentQueue: Queue = { slug: SLUG_DEVELOPMENT, label: "Development", order: 1 };
+const _developmentQueue: Queue = { slug: SLUG_DEVELOPMENT, label: "Development", order: 1 };
 const doneQueue: Queue = { slug: SLUG_DONE, label: "Done", order: 2 };
 
 afterEach(cleanup);
