@@ -33,11 +33,13 @@ jobs:
         if: always()
         with:
           report-path: ./junit.xml
+          github-token: ${{ secrets.GITHUB_TOKEN }}
           summary-report: true
           failed-report: true
           annotate: true
           pull-request-report: true
           github-report: true
+          exit-on-fail: true
           integrations-config: |
             {
               "junit-to-ctrf": {
