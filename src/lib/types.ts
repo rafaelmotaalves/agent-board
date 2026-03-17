@@ -74,3 +74,13 @@ export interface ToolCall {
   created_at: string;
   completed_at: string | null;
 }
+
+export interface TaskUsage {
+  id: number;
+  task_id: number;
+  token_limit: number;
+  used_tokens: number;
+  status: string;
+  created_at: string;
+  updated_at: string;
+}

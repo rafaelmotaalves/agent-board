@@ -1,6 +1,6 @@
 import { Database } from "bun:sqlite";
-import type { Task, TaskState, Agent, AgentOptions, AgentType, TaskMessage, ToolCall } from "@/lib/types";
-export type { Task, TaskState, Agent, AgentOptions, AgentType, TaskMessage, ToolCall };
+import type { Task, TaskState, Agent, AgentOptions, AgentType, TaskMessage, ToolCall, TaskUsage } from "@/lib/types";
+export type { Task, TaskState, Agent, AgentOptions, AgentType, TaskMessage, ToolCall, TaskUsage };
 export { isValidState, isValidAgentType, AGENT_TYPES, DEFAULT_AGENT_TYPE } from "@/lib/types";
 import { DB_PATH, ensureDataDir } from "@/lib/paths";
 
@@ -65,6 +65,18 @@ export function getDb(): Database {
         task_state_at_creation TEXT NOT NULL,
         created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
         completed_at TEXT DEFAULT NULL
+      )
+    `);
+    _db.exec(`
+      CREATE TABLE IF NOT EXISTS task_usage (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        task_id INTEGER NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+        token_limit INTEGER NOT NULL DEFAULT 0,
+        used_tokens INTEGER NOT NULL DEFAULT 0,
+        status TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+        updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+        UNIQUE(task_id, status)
       )
     `);
   }

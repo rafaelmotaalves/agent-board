@@ -19,10 +19,18 @@ export interface ToolCallUpdateEvent {
 export type OnToolCall = (event: ToolCallEvent) => void;
 export type OnToolCallUpdate = (event: ToolCallUpdateEvent) => void;
 
+export interface UsageEvent {
+    tokenLimit: number;
+    usedTokens: number;
+}
+
+export type OnUsage = (event: UsageEvent) => void;
+
 export interface AgentCallbacks {
     onDelta?: DeltaCallback;
     onToolCall?: OnToolCall;
     onToolCallUpdate?: OnToolCallUpdate;
+    onUsage?: OnUsage;
 }
 
 export interface IAgentCaller 

@@ -1,5 +1,5 @@
 import { Database, SQLQueryBindings } from "bun:sqlite";
-import { Task, TaskState, isValidState, TaskMessage, ToolCall } from "@/lib/types";
+import { Task, TaskState, isValidState, TaskMessage, ToolCall, TaskUsage } from "@/lib/types";
 import { isValidQueue, SLUG_DONE } from "@/lib/queues";
 import { getDb } from "./db";
 
@@ -422,5 +422,30 @@ export class TaskService {
     return this.db
       .prepare("SELECT * FROM task_tool_calls WHERE task_id = ? ORDER BY created_at ASC")
       .all(taskId) as ToolCall[];
+  }
+
+  // ── Usage ───────────────────────────────────────────────────────────────────
+
+  upsertUsage(taskId: number, status: string, tokenLimit: number, usedTokens: number): TaskUsage {
+    this.db
+      .prepare(
+        `INSERT INTO task_usage (task_id, status, token_limit, used_tokens)
+         VALUES (?, ?, ?, ?)
+         ON CONFLICT(task_id, status) DO UPDATE SET
+           token_limit = excluded.token_limit,
+           used_tokens = excluded.used_tokens,
+           updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')`
+      )
+      .run(taskId, status, tokenLimit, usedTokens);
+
+    return this.db
+      .prepare("SELECT * FROM task_usage WHERE task_id = ? AND status = ?")
+      .get(taskId, status) as TaskUsage;
+  }
+
+  listUsage(taskId: number): TaskUsage[] {
+    return this.db
+      .prepare("SELECT * FROM task_usage WHERE task_id = ? ORDER BY created_at ASC")
+      .all(taskId) as TaskUsage[];
   }
 }
