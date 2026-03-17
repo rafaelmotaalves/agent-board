@@ -10,9 +10,7 @@
     "public",
     "next.config.ts",
     "tsconfig.json",
-    "postcss.config.mjs",
-    "bunfig.toml",
-    "bun-env.d.ts"
+    "postcss.config.mjs"
   ],
   "scripts": {
     "dev": "bun --bun next dev",
