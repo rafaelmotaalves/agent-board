@@ -41,14 +41,14 @@ const workerScript = resolve(rootDir, "src", "worker.ts");
 
 const children = [];
 
-const worker = spawn(bunBin, ["run", workerScript], {
+const worker = spawn(bunBin, ["--bun", workerScript], {
   stdio: "inherit",
   cwd: rootDir,
   env,
 });
 children.push(worker);
 
-const server = spawn(bunBin, ["run", "next", "start", ...nextArgs], {
+const server = spawn(bunBin, ["--bun", "next", "start", ...nextArgs], {
   stdio: "inherit",
   cwd: rootDir,
   env,

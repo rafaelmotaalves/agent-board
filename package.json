@@ -1,6 +1,6 @@
 {
   "name": "@rafaelmotaalves/agent-board",
-  "version": "1.0.1",
+  "version": "1.0.3",
   "publishConfig": {
     "registry": "https://npm.pkg.github.com"
   },
