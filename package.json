@@ -27,8 +27,7 @@
     "test:coverage:report": "bun test --coverage --coverage-reporter=lcov --coverage-dir=./coverage",
     "test:e2e": "bun --bun playwright test",
     "test:e2e:ui": "bun --bun playwright test --ui",
-    "worker": "bun src/worker.ts",
-    "prepack": "bun run build"
+    "worker": "bun src/worker.ts"
   },
   "dependencies": {
     "@agentclientprotocol/sdk": "^0.15.0",
