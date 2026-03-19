@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useState, useCallback, useMemo } from "react";
+import { useEffect, useState, useCallback, useMemo, useRef } from "react";
 import type { Task, Agent, AgentOptions, AgentType } from "@/lib/types";
 import { Queue, QUEUES, SLUG_DONE } from "@/lib/queues";
 import { fetchTasks as apiFetchTasks, createTask, updateTaskStatus, deleteTask, fetchAgents, createAgent, updateAgent, deleteAgent, archiveTask, unarchiveTask, archiveAllDoneTasks } from "@/lib/api";
+import { DndContext, DragOverlay, PointerSensor, useSensor, useSensors, type DragStartEvent, type DragEndEvent, type DragOverEvent } from "@dnd-kit/core";
 import TaskDetailModal from "../TaskDetailModal";
+import TaskCard from "../TaskCard";
 import AgentList from "../AgentList";
 import ConfirmDeleteAgentModal from "../AgentList/ConfirmDeleteAgentModal";
 import BoardHeader from "./BoardHeader";
@@ -26,6 +28,12 @@ export default function Board() {
   const [deletingAgent, setDeletingAgent] = useState(false);
   const [deleteAgentError, setDeleteAgentError] = useState<string | null>(null);
   const [editingAgent, setEditingAgent] = useState<Agent | null>(null);
+  const [activeDragTask, setActiveDragTask] = useState<Task | null>(null);
+  const isDraggingRef = useRef(false);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
+  );
 
   useEffect(() => {
     const stored = localStorage.getItem(NOTIFICATIONS_STORAGE_KEY);
@@ -78,7 +86,9 @@ export default function Board() {
     fetchTasks();
     fetchAgentsData();
     const interval = setInterval(() => {
-      fetchTasks();
+      if (!isDraggingRef.current) {
+        fetchTasks();
+      }
     }, 2000);
     return () => clearInterval(interval);
   }, [fetchTasks, fetchAgentsData]);
@@ -101,6 +111,47 @@ export default function Board() {
     if (!nextQueue) return;
     await updateTaskStatus(task.id, nextQueue.slug);
     fetchTasks();
+  }
+
+  function canDragTask(task: Task): boolean {
+    return task.archived_at === null && task.state !== "in_progress";
+  }
+
+  function handleDragStart(event: DragStartEvent) {
+    const task = tasks.find((t) => t.id === event.active.id);
+    if (task) {
+      setActiveDragTask(task);
+      isDraggingRef.current = true;
+    }
+  }
+
+  function handleDragOver(_event: DragOverEvent) {
+    // Reserved for future within-column reordering
+  }
+
+  async function handleDragEnd(event: DragEndEvent) {
+    setActiveDragTask(null);
+    isDraggingRef.current = false;
+
+    const { active, over } = event;
+    if (!over) return;
+
+    const task = tasks.find((t) => t.id === active.id);
+    if (!task) return;
+
+    const targetQueue = over.id as string;
+    if (task.status === targetQueue) return;
+
+    // Optimistic update
+    setTasks((prev) => prev.map((t) => (t.id === task.id ? { ...t, status: targetQueue } : t)));
+
+    try {
+      await updateTaskStatus(task.id, targetQueue);
+      fetchTasks();
+    } catch {
+      // Revert on failure
+      setTasks((prev) => prev.map((t) => (t.id === task.id ? { ...t, status: task.status } : t)));
+    }
   }
 
   async function handleDelete(task: Task) {
@@ -176,32 +227,54 @@ export default function Board() {
       />
 
       <div className="flex flex-1 overflow-hidden">
-        <main className="flex flex-1 gap-4 overflow-x-auto p-6">
-          {QUEUES.map((queue) => {
-            const queueTasks = tasks.filter((t) => t.status === queue.slug);
-            const _archivedCount = queue.slug === SLUG_DONE && !showArchived
-              ? tasks.filter((t) => t.status === SLUG_DONE).length  // when not showing archived, we need a separate count
-              : undefined;
-            return (
-              <BoardColumn
-                key={queue.slug}
-                queue={queue}
-                tasks={queueTasks}
-                agents={agents}
-                onDelete={handleDelete}
-                onClick={setSelectedTask}
-                onCreateTask={
-                  queue.slug === "planning" ? handleCreateTask :
-                  queue.slug === "development" ? handleCreateDevTask :
-                  undefined
-                }
-                onArchive={queue.slug === SLUG_DONE ? handleArchive : undefined}
-                onUnarchive={queue.slug === SLUG_DONE ? handleUnarchive : undefined}
-                onArchiveAll={queue.slug === SLUG_DONE ? handleArchiveAllDone : undefined}
-              />
-            );
-          })}
-        </main>
+        <DndContext
+          sensors={sensors}
+          onDragStart={handleDragStart}
+          onDragOver={handleDragOver}
+          onDragEnd={handleDragEnd}
+        >
+          <main className="flex flex-1 gap-4 overflow-x-auto p-6">
+            {QUEUES.map((queue) => {
+              const queueTasks = tasks.filter((t) => t.status === queue.slug);
+              const _archivedCount = queue.slug === SLUG_DONE && !showArchived
+                ? tasks.filter((t) => t.status === SLUG_DONE).length
+                : undefined;
+              return (
+                <BoardColumn
+                  key={queue.slug}
+                  queue={queue}
+                  tasks={queueTasks}
+                  agents={agents}
+                  onDelete={handleDelete}
+                  onClick={setSelectedTask}
+                  onCreateTask={
+                    queue.slug === "planning" ? handleCreateTask :
+                    queue.slug === "development" ? handleCreateDevTask :
+                    undefined
+                  }
+                  onArchive={queue.slug === SLUG_DONE ? handleArchive : undefined}
+                  onUnarchive={queue.slug === SLUG_DONE ? handleUnarchive : undefined}
+                  onArchiveAll={queue.slug === SLUG_DONE ? handleArchiveAllDone : undefined}
+                  canDragTask={canDragTask}
+                />
+              );
+            })}
+          </main>
+
+          <DragOverlay dropAnimation={null}>
+            {activeDragTask ? (
+              <div className="rotate-2 scale-105">
+                <TaskCard
+                  task={activeDragTask}
+                  queue={QUEUES.find((q) => q.slug === activeDragTask.status) ?? QUEUES[0]}
+                  assignedAgent={agents.find((a) => a.id === activeDragTask.agent_id)}
+                  onDelete={() => {}}
+                  onClick={() => {}}
+                />
+              </div>
+            ) : null}
+          </DragOverlay>
+        </DndContext>
 
         {showAgents && (
           <AgentList

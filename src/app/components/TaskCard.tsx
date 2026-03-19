@@ -3,6 +3,8 @@
 import type { Task, Agent } from "@/lib/types";
 import { Queue, getNextQueue, isReadyForReview, SLUG_DONE } from "@/lib/queues";
 import { Loader2, TrashIcon, AlertCircle, Clock, CheckCircle2, ArchiveIcon, ArchiveRestoreIcon } from "lucide-react";
+import { useSortable } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { useActiveTime, formatActiveTime } from "./useActiveTime";
 
 interface TaskCardProps {
@@ -13,9 +15,10 @@ interface TaskCardProps {
   onClick: (task: Task) => void;
   onArchive?: (task: Task) => void;
   onUnarchive?: (task: Task) => void;
+  isDragDisabled?: boolean;
 }
 
-export default function TaskCard({ task, queue, assignedAgent, onDelete, onClick, onArchive, onUnarchive }: TaskCardProps) {
+export default function TaskCard({ task, queue, assignedAgent, onDelete, onClick, onArchive, onUnarchive, isDragDisabled }: TaskCardProps) {
   const nextQueue = getNextQueue(queue.slug);
   const readyForReview = isReadyForReview(task.state, queue.slug);
   const activeMs = useActiveTime(task.active_time_ms, task.active_since);
@@ -24,9 +27,39 @@ export default function TaskCard({ task, queue, assignedAgent, onDelete, onClick
   const isDone = queue.slug === SLUG_DONE;
   const isArchived = task.archived_at !== null;
 
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({
+    id: task.id,
+    disabled: isDragDisabled,
+    data: { task, queue },
+  });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  };
+
   return (
     <div
-      className={`cursor-pointer rounded-lg border bg-white p-3 shadow-sm transition-shadow hover:shadow-md dark:bg-zinc-800 ${
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...listeners}
+      className={`rounded-lg border bg-white p-3 shadow-sm transition-shadow dark:bg-zinc-800 ${
+        isDragging
+          ? "opacity-30"
+          : "cursor-pointer hover:shadow-md"
+      } ${
+        isDragDisabled
+          ? "cursor-default"
+          : ""
+      } ${
         isArchived
           ? "border-zinc-300 opacity-60 dark:border-zinc-600"
           : task.state === "failed"
@@ -35,7 +68,7 @@ export default function TaskCard({ task, queue, assignedAgent, onDelete, onClick
               ? "border-emerald-400 border-l-4 dark:border-emerald-500"
               : "border-zinc-200 dark:border-zinc-700"
       }`}
-      onClick={() => onClick(task)}
+      onClick={() => !isDragging && onClick(task)}
       role="button"
       tabIndex={0}
       onKeyDown={(e) => e.key === "Enter" && onClick(task)}

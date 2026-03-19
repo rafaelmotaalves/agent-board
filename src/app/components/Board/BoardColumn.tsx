@@ -1,6 +1,10 @@
+"use client";
+
 import type { Task, Agent } from "@/lib/types";
 import type { Queue } from "@/lib/queues";
 import { isReadyForReview } from "@/lib/queues";
+import { useDroppable } from "@dnd-kit/core";
+import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import TaskCard from "../TaskCard";
 import NewTaskForm from "../NewTaskForm";
 
@@ -14,14 +18,21 @@ interface BoardColumnProps {
   onArchive?: (task: Task) => void;
   onUnarchive?: (task: Task) => void;
   onArchiveAll?: () => void;
+  canDragTask?: (task: Task) => boolean;
 }
 
-export default function BoardColumn({ queue, tasks, agents, onDelete, onClick, onCreateTask, onArchive, onUnarchive, onArchiveAll }: BoardColumnProps) {
+export default function BoardColumn({ queue, tasks, agents, onDelete, onClick, onCreateTask, onArchive, onUnarchive, onArchiveAll, canDragTask }: BoardColumnProps) {
   const reviewCount = tasks.filter((t) => isReadyForReview(t.state, queue.slug)).length;
+  const { setNodeRef, isOver } = useDroppable({ id: queue.slug });
 
   return (
     <section
-      className="flex min-h-0 min-w-[20rem] flex-1 flex-col rounded-xl bg-zinc-50 p-4 dark:bg-zinc-900/50"
+      ref={setNodeRef}
+      className={`flex min-h-0 min-w-[20rem] flex-1 flex-col rounded-xl p-4 transition-colors ${
+        isOver
+          ? "bg-blue-50 ring-2 ring-blue-300 dark:bg-blue-950/30 dark:ring-blue-700"
+          : "bg-zinc-50 dark:bg-zinc-900/50"
+      }`}
     >
       <div className="mb-3 flex shrink-0 items-center justify-between">
         <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-600 dark:text-zinc-400">
@@ -39,20 +50,23 @@ export default function BoardColumn({ queue, tasks, agents, onDelete, onClick, o
         </div>
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto">
-        {tasks.map((task) => (
-          <TaskCard
-            key={task.id}
-            task={task}
-            queue={queue}
-            assignedAgent={agents.find((a) => a.id === task.agent_id)}
-            onDelete={onDelete}
-            onClick={onClick}
-            onArchive={onArchive}
-            onUnarchive={onUnarchive}
-          />
-        ))}
-      </div>
+      <SortableContext items={tasks.map((t) => t.id)} strategy={verticalListSortingStrategy}>
+        <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto">
+          {tasks.map((task) => (
+            <TaskCard
+              key={task.id}
+              task={task}
+              queue={queue}
+              assignedAgent={agents.find((a) => a.id === task.agent_id)}
+              onDelete={onDelete}
+              onClick={onClick}
+              onArchive={onArchive}
+              onUnarchive={onUnarchive}
+              isDragDisabled={canDragTask ? !canDragTask(task) : false}
+            />
+          ))}
+        </div>
+      </SortableContext>
 
       {onArchiveAll && tasks.some((t) => t.archived_at === null) && (
         <div className="mt-3 shrink-0">
