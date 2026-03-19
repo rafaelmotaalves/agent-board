@@ -1,6 +1,7 @@
 import { Database, SQLQueryBindings } from "bun:sqlite";
 import { Task, TaskState, isValidState, TaskMessage, ToolCall, TaskUsage } from "@/lib/types";
 import { isValidQueue, SLUG_DONE } from "@/lib/queues";
+import { AgentService } from "@/lib/agents/agentService";
 import { getDb } from "./db";
 
 export interface CreateTaskInput {
@@ -111,6 +112,13 @@ export class TaskService {
     const status = input.status ?? "planning";
     if (!isValidQueue(status)) throw new ValidationError("Invalid status");
     if (status === SLUG_DONE) throw new ValidationError("Cannot create a task with done status");
+
+    if (input.agent_id != null) {
+      const agentService = new AgentService(this.db);
+      if (!agentService.findById(input.agent_id)) {
+        throw new ValidationError("Agent not found");
+      }
+    }
 
     const description = (input.description ?? "").trim();
     const result = this.db

@@ -7,6 +7,18 @@ function createDb(): Database {
   db.exec("PRAGMA journal_mode = WAL");
   db.exec("PRAGMA foreign_keys = ON");
   db.exec(`
+    CREATE TABLE agents (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      port INTEGER NOT NULL UNIQUE,
+      type TEXT NOT NULL DEFAULT 'copilot_cli_sdk',
+      command TEXT DEFAULT NULL,
+      options TEXT NOT NULL DEFAULT '{}',
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    )
+  `);
+  db.exec("INSERT INTO agents (id, name, port) VALUES (1, 'test-agent', 9999)");
+  db.exec(`
     CREATE TABLE tasks (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       title TEXT NOT NULL,
