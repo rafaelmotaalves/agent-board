@@ -32,6 +32,7 @@
   "dependencies": {
     "@agentclientprotocol/sdk": "^0.15.0",
     "@github/copilot-sdk": "^0.1.32",
+    "@tailwindcss/postcss": "^4",
     "@tailwindcss/typography": "^0.5.19",
     "better-sqlite3": "^12.8.0",
     "lucide-react": "^0.576.0",
@@ -41,12 +42,13 @@
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-markdown": "^10.1.0",
-    "tsx": "^4.21.0"
+    "tailwindcss": "^4",
+    "tsx": "^4.21.0",
+    "typescript": "^5"
   },
   "devDependencies": {
     "@happy-dom/global-registrator": "^20.8.3",
     "@playwright/test": "^1.58.2",
-    "@tailwindcss/postcss": "^4",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",
@@ -58,8 +60,6 @@
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
     "happy-dom": "^20.8.3",
-    "tailwindcss": "^4",
-    "typescript": "^5",
     "vitest": "^4.1.0"
   }
 }
