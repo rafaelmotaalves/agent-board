@@ -52,3 +52,4 @@ test-output.txt
 # swc cache
 .swc/
 
+*.tgz
