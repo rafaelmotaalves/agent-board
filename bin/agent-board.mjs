@@ -55,7 +55,7 @@ const worker = spawn(process.execPath, ["--import", tsxLoader, workerScript], {
 });
 children.push(worker);
 
-const server = spawn(process.execPath, [nextBin, "start", ...nextArgs], {
+const server = spawn(process.execPath, [nextBin, "start", rootDir, ...nextArgs], {
   stdio: "inherit",
   cwd: rootDir,
   env,
