@@ -1,5 +1,5 @@
-import { describe, it, expect, beforeEach } from "bun:test";
-import { Database } from "bun:sqlite";
+import { describe, it, expect, beforeEach } from "vitest";
+import Database from "better-sqlite3";
 import { AgentService } from "@/lib/agents";
 import { syncAgentsFromConfig } from "@/lib/configSync";
 import type { BoardConfig } from "@/lib/config";
