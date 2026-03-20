@@ -1,4 +1,4 @@
-import { describe, it, expect, mock, afterEach } from "bun:test";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { render, screen, fireEvent, waitFor, cleanup } from "@testing-library/react";
 import NewTaskForm from "../NewTaskForm";
 import type { Agent } from "@/lib/types";
@@ -57,7 +57,7 @@ describe("NewTaskForm", () => {
   });
 
   it("calls onSubmit with form values", async () => {
-    const onSubmit = mock(async () => {});
+    const onSubmit = vi.fn(async () => {});
     render(<NewTaskForm agents={agents} onSubmit={onSubmit} />);
 
     fireEvent.click(screen.getByText("+ New Task"));
@@ -75,7 +75,7 @@ describe("NewTaskForm", () => {
   });
 
   it("resets form after successful submission", async () => {
-    const onSubmit = mock(async () => {});
+    const onSubmit = vi.fn(async () => {});
     render(<NewTaskForm agents={agents} onSubmit={onSubmit} />);
 
     fireEvent.click(screen.getByText("+ New Task"));
