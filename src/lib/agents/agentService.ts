@@ -1,4 +1,4 @@
-import { Database } from "bun:sqlite";
+import Database from "better-sqlite3";
 import type { Agent, AgentOptions, AgentType, AgentSource } from "../types";
 import { isValidAgentType, DEFAULT_AGENT_TYPE } from "../types";
 import { getDb } from "../db";
