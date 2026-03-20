@@ -19,7 +19,7 @@
 
 import path from "node:path";
 import fs from "node:fs";
-import { STREAMING_DIR, ensureDataDir } from "@/lib/paths";
+import { STREAMING_DIR, ensureDataDir } from "./paths";
 
 /** Interface for streaming store operations used by TaskWorker. */
 export interface StreamingStore {

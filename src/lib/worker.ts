@@ -1,4 +1,4 @@
-import { TaskService } from "@/lib/taskService";
+import { TaskService } from "./taskService";
 import { Task } from "./types";
 import { AgentPool } from "./agents";
 import { AgentCallbacks, UsageEvent } from "./agents/agentCaller";

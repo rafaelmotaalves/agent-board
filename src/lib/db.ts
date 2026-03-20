@@ -1,8 +1,8 @@
 import Database from "better-sqlite3";
-import type { Task, TaskState, Agent, AgentOptions, AgentType, AgentSource, TaskMessage, ToolCall, TaskUsage } from "@/lib/types";
+import type { Task, TaskState, Agent, AgentOptions, AgentType, AgentSource, TaskMessage, ToolCall, TaskUsage } from "./types";
 export type { Task, TaskState, Agent, AgentOptions, AgentType, AgentSource, TaskMessage, ToolCall, TaskUsage };
-export { isValidState, isValidAgentType, AGENT_TYPES, DEFAULT_AGENT_TYPE } from "@/lib/types";
-import { DB_PATH, ensureDataDir } from "@/lib/paths";
+export { isValidState, isValidAgentType, AGENT_TYPES, DEFAULT_AGENT_TYPE } from "./types";
+import { DB_PATH, ensureDataDir } from "./paths";
 
 export type DatabaseInstance = InstanceType<typeof Database>;
 

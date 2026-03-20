@@ -1,6 +1,6 @@
 import type { DatabaseInstance } from "./db";
-import { Task, TaskState, isValidState, TaskMessage, ToolCall, TaskUsage } from "@/lib/types";
-import { isValidQueue, SLUG_DONE } from "@/lib/queues";
+import { Task, TaskState, isValidState, TaskMessage, ToolCall, TaskUsage } from "./types";
+import { isValidQueue, SLUG_DONE } from "./queues";
 import { getDb } from "./db";
 
 export interface CreateTaskInput {

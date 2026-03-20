@@ -40,15 +40,15 @@ if (port) {
 
 const workerScript = resolve(rootDir, "src", "worker.ts");
 
-// Resolve tsx register hook as a file URL (needed for --import with absolute paths)
-const tsxPath = pathToFileURL(require.resolve("tsx")).href;
+// Resolve tsx loader as a file:// URL for --import flag
+const tsxLoader = pathToFileURL(resolve(dirname(require.resolve("tsx/package.json")), "dist", "loader.mjs")).href;
 
 // Resolve next CLI binary from the package's own dependencies
 const nextBin = resolve(dirname(require.resolve("next/package.json")), "dist", "bin", "next");
 
 const children = [];
 
-const worker = spawn(process.execPath, ["--import", tsxPath, workerScript], {
+const worker = spawn(process.execPath, ["--import", tsxLoader, workerScript], {
   stdio: "inherit",
   cwd: rootDir,
   env,
