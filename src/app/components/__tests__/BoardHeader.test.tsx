@@ -1,4 +1,4 @@
-import { describe, it, expect, mock, afterEach } from "bun:test";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { render, screen, fireEvent, cleanup } from "@testing-library/react";
 import BoardHeader from "../Board/BoardHeader";
 import type { Agent } from "@/lib/types";
@@ -51,7 +51,7 @@ describe("BoardHeader", () => {
   });
 
   it("calls onToggleAgents when Agents button is clicked", () => {
-    const onToggleAgents = mock(() => {});
+    const onToggleAgents = vi.fn(() => {});
     render(<BoardHeader {...defaults} onToggleAgents={onToggleAgents} />);
     fireEvent.click(screen.getByText("Agents"));
     expect(onToggleAgents).toHaveBeenCalledTimes(1);
@@ -68,7 +68,7 @@ describe("BoardHeader", () => {
   });
 
   it("calls onToggleArchived when archive button is clicked", () => {
-    const onToggleArchived = mock(() => {});
+    const onToggleArchived = vi.fn(() => {});
     render(<BoardHeader {...defaults} onToggleArchived={onToggleArchived} />);
     fireEvent.click(screen.getByText("Show archived"));
     expect(onToggleArchived).toHaveBeenCalledTimes(1);
@@ -85,7 +85,7 @@ describe("BoardHeader", () => {
   });
 
   it("calls onToggleNotifications when notification button is clicked", () => {
-    const onToggleNotifications = mock(() => {});
+    const onToggleNotifications = vi.fn(() => {});
     render(
       <BoardHeader {...defaults} onToggleNotifications={onToggleNotifications} />,
     );

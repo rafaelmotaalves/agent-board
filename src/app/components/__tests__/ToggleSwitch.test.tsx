@@ -1,4 +1,4 @@
-import { describe, it, expect, mock, afterEach } from "bun:test";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { render, screen, fireEvent, cleanup } from "@testing-library/react";
 import ToggleSwitch from "../ToggleSwitch";
 
@@ -18,14 +18,14 @@ describe("ToggleSwitch", () => {
   });
 
   it("calls onChange with toggled value on click", () => {
-    const onChange = mock(() => {});
+    const onChange = vi.fn(() => {});
     render(<ToggleSwitch checked={false} onChange={onChange} />);
     fireEvent.click(screen.getByRole("switch"));
     expect(onChange).toHaveBeenCalledWith(true);
   });
 
   it("calls onChange with false when checked and clicked", () => {
-    const onChange = mock(() => {});
+    const onChange = vi.fn(() => {});
     render(<ToggleSwitch checked={true} onChange={onChange} />);
     fireEvent.click(screen.getByRole("switch"));
     expect(onChange).toHaveBeenCalledWith(false);
@@ -38,7 +38,7 @@ describe("ToggleSwitch", () => {
   });
 
   it("is disabled when disabled prop is true", () => {
-    const onChange = mock(() => {});
+    const onChange = vi.fn(() => {});
     render(<ToggleSwitch checked={false} onChange={onChange} disabled />);
     const button = screen.getByRole("switch");
     expect(button.hasAttribute("disabled")).toBe(true);
