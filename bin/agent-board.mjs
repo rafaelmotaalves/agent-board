@@ -2,10 +2,12 @@
 
 import { spawn } from "node:child_process";
 import { resolve, dirname } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
+import { createRequire } from "node:module";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const rootDir = resolve(__dirname, "..");
+const require = createRequire(import.meta.url);
 
 // Parse --config <path> and --port/-p <port> from argv; forward the rest to Next.js
 const rawArgs = process.argv.slice(2);
@@ -38,16 +40,21 @@ if (port) {
 
 const workerScript = resolve(rootDir, "src", "worker.ts");
 
+// Resolve tsx register hook as a file URL (needed for --import with absolute paths)
+const tsxPath = pathToFileURL(require.resolve("tsx")).href;
+
+// Resolve next CLI binary from the package's own dependencies
+const nextBin = resolve(dirname(require.resolve("next/package.json")), "dist", "bin", "next");
+
 const children = [];
 
-const worker = spawn(process.execPath, ["--import", "tsx", workerScript], {
+const worker = spawn(process.execPath, ["--import", tsxPath, workerScript], {
   stdio: "inherit",
   cwd: rootDir,
   env,
 });
 children.push(worker);
 
-const nextBin = resolve(rootDir, "node_modules", "next", "dist", "bin", "next");
 const server = spawn(process.execPath, [nextBin, "start", ...nextArgs], {
   stdio: "inherit",
   cwd: rootDir,
