@@ -2,12 +2,12 @@
 
 ## Prerequisites
 
-- [Bun](https://bun.sh) >= 1.0
+- [Node.js](https://nodejs.org) >= 22
 
 ## Setup
 
 ```bash
-bun install
+npm install
 ```
 
 ## Development Workflow
@@ -34,30 +34,30 @@ Implement your changes inside the worktree directory.
 ### 3. Build, Lint & Test
 
 ```bash
-bun run build        # Production build
-bun run lint         # ESLint (flat config with core-web-vitals + typescript)
-bun test             # Unit tests (Bun + React Testing Library)
-bun run test:watch   # Unit tests in watch mode
-bunx jest path/to/file  # Run a single test file
+npm run build        # Production build
+npm run lint         # ESLint (flat config with core-web-vitals + typescript)
+npm test             # Unit tests (Vitest + React Testing Library)
+npm run test:watch   # Unit tests in watch mode
+npx vitest path/to/file  # Run a single test file
 ```
 
 **Coverage reports**
 
 ```bash
-bun run test:coverage          # Terminal coverage summary
-bun run test:coverage:report   # Generate LCOV report in ./coverage/
+npm run test:coverage          # Terminal coverage summary
+npm run test:coverage:report   # Generate LCOV report in ./coverage/
 ```
 
 The terminal report shows per-file line coverage inline. The LCOV reporter writes `coverage/lcov.info` which can be consumed by CI tools (Codecov, Coveralls, GitHub Actions) or converted to HTML with `genhtml coverage/lcov.info -o coverage/html` (requires `lcov` installed).
 
-Always run unit tests after making changes and ensure they all pass before finishing. Do **not** run E2E tests (`bun run test:e2e`) unless explicitly asked.
+Always run unit tests after making changes and ensure they all pass before finishing. Do **not** run E2E tests (`npm run test:e2e`) unless explicitly asked.
 
 **E2E tests (Playwright, Chromium only)**
 
 ```bash
-bun run test:e2e        # Run all E2E tests (auto-starts dev server)
-bun run test:e2e:ui     # Playwright UI mode
-bunx playwright test e2e/home.spec.ts  # Run a single E2E file
+npm run test:e2e        # Run all E2E tests (auto-starts dev server)
+npm run test:e2e:ui     # Playwright UI mode
+npx playwright test e2e/home.spec.ts  # Run a single E2E file
 ```
 
 ### 4. Commit Changes

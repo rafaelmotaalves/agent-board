@@ -1,4 +1,4 @@
-import { Database } from "bun:sqlite";
+import type { DatabaseInstance } from "../db";
 import type { Agent, AgentOptions, AgentType, AgentSource } from "../types";
 import { isValidAgentType, DEFAULT_AGENT_TYPE } from "../types";
 import { getDb } from "../db";
@@ -44,9 +44,9 @@ export class AgentConfigError extends Error {
 }
 
 export class AgentService {
-  private readonly db: Database;
+  private readonly db: DatabaseInstance;
 
-  constructor(db?: Database) {
+  constructor(db?: DatabaseInstance) {
     this.db = db ?? getDb();
   }
 

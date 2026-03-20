@@ -1,12 +1,14 @@
-import { Database } from "bun:sqlite";
+import Database from "better-sqlite3";
 import type { Task, TaskState, Agent, AgentOptions, AgentType, AgentSource, TaskMessage, ToolCall, TaskUsage } from "@/lib/types";
 export type { Task, TaskState, Agent, AgentOptions, AgentType, AgentSource, TaskMessage, ToolCall, TaskUsage };
 export { isValidState, isValidAgentType, AGENT_TYPES, DEFAULT_AGENT_TYPE } from "@/lib/types";
 import { DB_PATH, ensureDataDir } from "@/lib/paths";
 
-let _db: Database | null = null;
+export type DatabaseInstance = InstanceType<typeof Database>;
 
-export function getDb(): Database {
+let _db: DatabaseInstance | null = null;
+
+export function getDb(): DatabaseInstance {
   if (!_db) {
     ensureDataDir();
     _db = new Database(DB_PATH);

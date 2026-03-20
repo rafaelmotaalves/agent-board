@@ -1,8 +1,9 @@
-import { describe, it, expect, beforeEach } from "bun:test";
-import { Database } from "bun:sqlite";
+import { describe, it, expect, beforeEach } from "vitest";
+import Database from "better-sqlite3";
+type DB = InstanceType<typeof Database>;
 import { TaskService, ValidationError, TaskNotFoundError } from "@/lib/taskService";
 
-function createDb(): Database {
+function createDb(): DB {
   const db = new Database(":memory:");
   db.exec("PRAGMA journal_mode = WAL");
   db.exec("PRAGMA foreign_keys = ON");
@@ -667,7 +668,7 @@ describe("TaskService", () => {
 
       // Manually set active_since to 5 seconds ago to simulate elapsed time
       const fiveSecondsAgo = new Date(Date.now() - 5000).toISOString();
-      const db = (service as unknown as { db: Database }).db;
+      const db = (service as unknown as { db: DB }).db;
       db.prepare("UPDATE tasks SET state = 'in_progress', active_since = ? WHERE id = ?")
         .run(fiveSecondsAgo, task.id);
 
@@ -681,7 +682,7 @@ describe("TaskService", () => {
       const task = service.create({ title: "Task", agent_id: 1 });
 
       const threeSecondsAgo = new Date(Date.now() - 3000).toISOString();
-      const db = (service as unknown as { db: Database }).db;
+      const db = (service as unknown as { db: DB }).db;
       db.prepare("UPDATE tasks SET state = 'in_progress', active_since = ? WHERE id = ?")
         .run(threeSecondsAgo, task.id);
 
@@ -695,7 +696,7 @@ describe("TaskService", () => {
 
       // First cycle: manually simulate 2 seconds of active time
       const twoSecondsAgo = new Date(Date.now() - 2000).toISOString();
-      const db = (service as unknown as { db: Database }).db;
+      const db = (service as unknown as { db: DB }).db;
       db.prepare("UPDATE tasks SET state = 'in_progress', active_since = ? WHERE id = ?")
         .run(twoSecondsAgo, task.id);
       service.update(task.id, { state: "done" });
@@ -729,7 +730,7 @@ describe("TaskService", () => {
       const task = service.create({ title: "Stuck task", agent_id: 1 });
 
       const twoSecondsAgo = new Date(Date.now() - 2000).toISOString();
-      const db = (service as unknown as { db: Database }).db;
+      const db = (service as unknown as { db: DB }).db;
       db.prepare("UPDATE tasks SET state = 'in_progress', active_since = ? WHERE id = ?")
         .run(twoSecondsAgo, task.id);
 

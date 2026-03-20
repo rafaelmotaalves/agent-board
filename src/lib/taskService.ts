@@ -1,4 +1,4 @@
-import { Database, SQLQueryBindings } from "bun:sqlite";
+import type { DatabaseInstance } from "./db";
 import { Task, TaskState, isValidState, TaskMessage, ToolCall, TaskUsage } from "@/lib/types";
 import { isValidQueue, SLUG_DONE } from "@/lib/queues";
 import { getDb } from "./db";
@@ -38,9 +38,9 @@ export class ValidationError extends Error {
 }
 
 export class TaskService {
-  private readonly db: Database;
+  private readonly db: DatabaseInstance;
 
-  constructor(db?: Database) {
+  constructor(db?: DatabaseInstance) {
     this.db = db ?? getDb();
   }
 
@@ -410,7 +410,7 @@ export class TaskService {
     updates: { output?: string; status?: "running" | "completed" | "failed"; completed_at?: string; kind?: string },
   ): void {
     const parts: string[] = [];
-    const values: SQLQueryBindings[] = [];
+    const values: (string | number | null)[] = [];
 
     if (updates.output !== undefined) {
       parts.push("output = ?");

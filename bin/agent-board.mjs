@@ -36,19 +36,19 @@ if (port) {
   env.PORT = port;
 }
 
-const bunBin = process.argv[0].endsWith("bun") ? process.argv[0] : "bun";
 const workerScript = resolve(rootDir, "src", "worker.ts");
 
 const children = [];
 
-const worker = spawn(bunBin, ["--bun", workerScript], {
+const worker = spawn(process.execPath, ["--import", "tsx", workerScript], {
   stdio: "inherit",
   cwd: rootDir,
   env,
 });
 children.push(worker);
 
-const server = spawn(bunBin, ["--bun", "next", "start", ...nextArgs], {
+const nextBin = resolve(rootDir, "node_modules", "next", "dist", "bin", "next");
+const server = spawn(process.execPath, [nextBin, "start", ...nextArgs], {
   stdio: "inherit",
   cwd: rootDir,
   env,
