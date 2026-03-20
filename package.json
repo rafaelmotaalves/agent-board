@@ -14,8 +14,7 @@
     "public",
     "next.config.ts",
     "tsconfig.json",
-    "postcss.config.mjs",
-    "dist"
+    "postcss.config.mjs"
   ],
   "scripts": {
     "dev": "next dev --turbopack",

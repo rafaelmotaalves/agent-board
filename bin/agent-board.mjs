@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { spawn } from "node:child_process";
+import { spawn, execFileSync } from "node:child_process";
 import { resolve, dirname } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { createRequire } from "node:module";
@@ -8,6 +8,10 @@ import { createRequire } from "node:module";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const rootDir = resolve(__dirname, "..");
 const require = createRequire(import.meta.url);
+
+function log(message) {
+  console.log(`[agent-board] ${message}`);
+}
 
 // Parse --config <path> and --port/-p <port> from argv; forward the rest to Next.js
 const rawArgs = process.argv.slice(2);
@@ -21,7 +25,7 @@ for (let i = 0; i < rawArgs.length; i++) {
   } else if ((rawArgs[i] === "--port" || rawArgs[i] === "-p") && i + 1 < rawArgs.length) {
     port = rawArgs[++i];
     if (isNaN(Number(port)) || Number(port) < 1 || Number(port) > 65535) {
-      console.error(`Invalid port: ${port}`);
+      console.error(`[agent-board] Invalid port: ${port}`);
       process.exit(1);
     }
     nextArgs.push("--port", port);
@@ -38,16 +42,31 @@ if (port) {
   env.PORT = port;
 }
 
+// Resolve next CLI binary from the package's own dependencies
+const nextBin = resolve(dirname(require.resolve("next/package.json")), "dist", "bin", "next");
+
+// Build the project before starting
+log("Building the project...");
+try {
+  execFileSync(process.execPath, [nextBin, "build", rootDir], {
+    stdio: "inherit",
+    cwd: rootDir,
+    env,
+  });
+  log("Build completed successfully.");
+} catch {
+  console.error("[agent-board] Build failed. Exiting.");
+  process.exit(1);
+}
+
 const workerScript = resolve(rootDir, "src", "worker.ts");
 
 // Resolve tsx loader as a file:// URL for --import flag
 const tsxLoader = pathToFileURL(resolve(dirname(require.resolve("tsx/package.json")), "dist", "loader.mjs")).href;
 
-// Resolve next CLI binary from the package's own dependencies
-const nextBin = resolve(dirname(require.resolve("next/package.json")), "dist", "bin", "next");
-
 const children = [];
 
+log("Starting worker...");
 const worker = spawn(process.execPath, ["--import", tsxLoader, workerScript], {
   stdio: "inherit",
   cwd: rootDir,
@@ -55,6 +74,7 @@ const worker = spawn(process.execPath, ["--import", tsxLoader, workerScript], {
 });
 children.push(worker);
 
+log("Starting server...");
 const server = spawn(process.execPath, [nextBin, "start", rootDir, ...nextArgs], {
   stdio: "inherit",
   cwd: rootDir,
@@ -63,6 +83,7 @@ const server = spawn(process.execPath, [nextBin, "start", rootDir, ...nextArgs],
 children.push(server);
 
 function shutdown() {
+  log("Shutting down...");
   for (const child of children) {
     child.kill();
   }
