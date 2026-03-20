@@ -1,5 +1,6 @@
-import { describe, it, expect, beforeEach, afterEach, jest } from "bun:test";
-import { Database } from "bun:sqlite";
+import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
+import Database from "better-sqlite3";
+type DB = InstanceType<typeof Database>;
 import { TaskService } from "@/lib/taskService";
 import { TaskWorker } from "@/lib/worker";
 import type { AgentPool } from "@/lib/agents";
@@ -81,7 +82,7 @@ function getProcessingIds(worker: TaskWorker, status: string): number[] {
   return set ? [...set] : [];
 }
 
-function createDb(): Database {
+function createDb(): DB {
   const db = new Database(":memory:");
   db.exec("PRAGMA journal_mode = WAL");
   db.exec("PRAGMA foreign_keys = ON");
@@ -133,14 +134,14 @@ describe("TaskWorker", () => {
   let worker: TaskWorker;
 
   beforeEach(() => {
-    jest.useFakeTimers();
+    vi.useFakeTimers();
     service = new TaskService(createDb());
     worker = new TaskWorker(service, createMockAgentPool(), noopStreamingStore);
   });
 
   afterEach(() => {
     worker.stop();
-    jest.useRealTimers();
+    vi.useRealTimers();
   });
 
   describe("start / stop", () => {
@@ -243,7 +244,7 @@ describe("TaskWorker", () => {
 
       expect(service.findById(task.id)!.state).toBe("in_progress");
 
-      jest.advanceTimersByTime(AGENT_DELAY_MS);
+      vi.advanceTimersByTime(AGENT_DELAY_MS);
       await flushMicrotasks();
 
       expect(service.findById(task.id)!.state).toBe("done");
@@ -258,7 +259,7 @@ describe("TaskWorker", () => {
       await flushMicrotasks();
       const firstId = getProcessingId(worker, "planning")!;
 
-      jest.advanceTimersByTime(AGENT_DELAY_MS);
+      vi.advanceTimersByTime(AGENT_DELAY_MS);
       await flushMicrotasks();
       expect(worker.getProcessingTasks().has("planning")).toBe(false);
 
@@ -274,7 +275,7 @@ describe("TaskWorker", () => {
       service.create({ title: "Auto pick", agent_id: 1 });
       worker.start();
 
-      jest.advanceTimersByTime(1000);
+      vi.advanceTimersByTime(1000);
       await flushMicrotasks();
 
       expect(worker.getProcessingTasks().has("planning")).toBe(true);
@@ -320,7 +321,7 @@ describe("TaskWorker", () => {
       await flushMicrotasks();
       expect(service.findById(task.id)!.state).toBe("in_progress");
 
-      jest.advanceTimersByTime(AGENT_DELAY_MS);
+      vi.advanceTimersByTime(AGENT_DELAY_MS);
       await flushMicrotasks();
 
       expect(service.findById(task.id)!.state).toBe("done");
@@ -514,7 +515,7 @@ describe("TaskWorker", () => {
       await flushMicrotasks();
       expect(service.findById(task.id)!.state).toBe("in_progress");
 
-      jest.advanceTimersByTime(AGENT_DELAY_MS);
+      vi.advanceTimersByTime(AGENT_DELAY_MS);
       await flushMicrotasks();
 
       const failed = service.findById(task.id)!;
@@ -533,7 +534,7 @@ describe("TaskWorker", () => {
       failWorker.tick();
       await flushMicrotasks();
 
-      jest.advanceTimersByTime(AGENT_DELAY_MS);
+      vi.advanceTimersByTime(AGENT_DELAY_MS);
       await flushMicrotasks();
 
       const failed = service.findById(task.id)!;
@@ -552,7 +553,7 @@ describe("TaskWorker", () => {
       failWorker.tick();
       await flushMicrotasks();
 
-      jest.advanceTimersByTime(AGENT_DELAY_MS);
+      vi.advanceTimersByTime(AGENT_DELAY_MS);
       await flushMicrotasks();
 
       const failed = service.findById(task.id)!;
@@ -568,7 +569,7 @@ describe("TaskWorker", () => {
       // First attempt — agent fails, should mark the streaming message as complete
       failWorker.tick();
       await flushMicrotasks();
-      jest.advanceTimersByTime(AGENT_DELAY_MS);
+      vi.advanceTimersByTime(AGENT_DELAY_MS);
       await flushMicrotasks();
 
       expect(service.findById(task.id)!.state).toBe("failed");
@@ -587,7 +588,7 @@ describe("TaskWorker", () => {
       // Second attempt — also fails, but should NOT leave incomplete messages
       failWorker.tick();
       await flushMicrotasks();
-      jest.advanceTimersByTime(AGENT_DELAY_MS);
+      vi.advanceTimersByTime(AGENT_DELAY_MS);
       await flushMicrotasks();
 
       const messagesAfterRetry = service.listMessages(task.id);
@@ -620,7 +621,7 @@ describe("TaskWorker", () => {
 
       partialWorker.tick();
       await flushMicrotasks();
-      jest.advanceTimersByTime(AGENT_DELAY_MS);
+      vi.advanceTimersByTime(AGENT_DELAY_MS);
       await flushMicrotasks();
 
       expect(service.findById(task.id)!.state).toBe("failed");
@@ -643,7 +644,7 @@ describe("TaskWorker", () => {
       await flushMicrotasks();
       expect(service.findById(task.id)!.state).toBe("in_progress");
 
-      jest.advanceTimersByTime(AGENT_DELAY_MS);
+      vi.advanceTimersByTime(AGENT_DELAY_MS);
       await flushMicrotasks();
 
       expect(service.findById(task.id)!.state).toBe("done");
@@ -663,7 +664,7 @@ describe("TaskWorker", () => {
       await flushMicrotasks();
       const firstId = getProcessingId(worker, "development")!;
 
-      jest.advanceTimersByTime(AGENT_DELAY_MS);
+      vi.advanceTimersByTime(AGENT_DELAY_MS);
       await flushMicrotasks();
       expect(worker.getProcessingTasks().has("development")).toBe(false);
 

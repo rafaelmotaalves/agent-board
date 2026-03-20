@@ -7,32 +7,32 @@
 ## Build, Test, and Lint
 
 ```bash
-bun run build          # Production build
-bun run dev            # Dev server on http://localhost:3000
-bun run lint           # ESLint (flat config with core-web-vitals + typescript)
+npm run build          # Production build
+npm run dev            # Dev server on http://localhost:3000
+npm run lint           # ESLint (flat config with core-web-vitals + typescript)
 
-# Unit tests (Jest + React Testing Library)
-bun test               # Run all unit tests (via Jest)
-bun run test:watch     # Watch mode
-bunx jest path/to/file # Run a single test file
+# Unit tests (Vitest + React Testing Library)
+npm test               # Run all unit tests (via Vitest)
+npm run test:watch     # Watch mode
+npx vitest path/to/file # Run a single test file
 
 # E2E tests (Playwright, Chromium only)
-bun run test:e2e       # Run all E2E tests (auto-starts dev server)
-bun run test:e2e:ui    # Playwright UI mode
-bunx playwright test e2e/home.spec.ts  # Run a single E2E file
+npm run test:e2e       # Run all E2E tests (auto-starts dev server)
+npm run test:e2e:ui    # Playwright UI mode
+npx playwright test e2e/home.spec.ts  # Run a single E2E file
 ```
 
 ## Architecture
 
 - **Next.js 16** with App Router, TypeScript strict mode, and Turbopack dev server
 - **`src/app/`** — App Router pages and layouts. Each route is a directory with `page.tsx`
-- **`src/app/__tests__/`** — Jest unit tests colocated with the app directory
+- **`src/app/__tests__/`** — Vitest unit tests colocated with the app directory
 - **`e2e/`** — Playwright E2E tests (separate from `src/`)
 
 ## Development Process
 You can focus on implementing the features for now, don't need to worry about implementing tests immediately. Once the main functionality is in place, we can circle back and add tests to ensure everything is working as expected and to prevent regressions in the future.
 
-Always run the unit tests (`bun test`) after making code changes and ensure they all pass before finishing. Do **not** run E2E tests (`bun run test:e2e`) unless explicitly asked to.
+Always run the unit tests (`npm test`) after making code changes and ensure they all pass before finishing. Do **not** run E2E tests (`npm run test:e2e`) unless explicitly asked to.
 
 ## Development Workflow
 

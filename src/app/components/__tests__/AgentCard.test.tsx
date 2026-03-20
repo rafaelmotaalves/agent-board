@@ -1,4 +1,4 @@
-import { describe, it, expect, mock, afterEach } from "bun:test";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { render, screen, fireEvent, cleanup } from "@testing-library/react";
 import AgentCard from "../AgentList/AgentCard";
 import type { Agent } from "@/lib/types";
@@ -102,7 +102,7 @@ describe("AgentCard", () => {
 
   it("calls onDelete when delete button is clicked", () => {
     const agent = makeAgent();
-    const onDelete = mock(() => {});
+    const onDelete = vi.fn(() => {});
     render(<AgentCard agent={agent} onDelete={onDelete} />);
     fireEvent.click(screen.getByRole("button", { name: /delete agent/i }));
     expect(onDelete).toHaveBeenCalledWith(agent);
@@ -114,22 +114,22 @@ describe("AgentCard", () => {
   });
 
   it("hides delete and edit buttons for config-sourced agents", () => {
-    const onDelete = mock(() => {});
-    const onEdit = mock(() => {});
+    const onDelete = vi.fn(() => {});
+    const onEdit = vi.fn(() => {});
     render(<AgentCard agent={makeAgent({ source: "config" })} onDelete={onDelete} onEdit={onEdit} />);
     expect(screen.queryByRole("button", { name: /delete agent/i })).toBeNull();
     expect(screen.queryByRole("button", { name: /edit agent/i })).toBeNull();
   });
 
   it("shows edit button for user-sourced agents when onEdit is provided", () => {
-    const onEdit = mock(() => {});
+    const onEdit = vi.fn(() => {});
     render(<AgentCard agent={makeAgent()} onDelete={() => {}} onEdit={onEdit} />);
     expect(screen.getByRole("button", { name: /edit agent/i })).toBeTruthy();
   });
 
   it("calls onEdit when edit button is clicked", () => {
     const agent = makeAgent();
-    const onEdit = mock(() => {});
+    const onEdit = vi.fn(() => {});
     render(<AgentCard agent={agent} onDelete={() => {}} onEdit={onEdit} />);
     fireEvent.click(screen.getByRole("button", { name: /edit agent/i }));
     expect(onEdit).toHaveBeenCalledWith(agent);

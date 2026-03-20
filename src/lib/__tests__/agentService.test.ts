@@ -1,8 +1,9 @@
-import { describe, it, expect, beforeEach } from "bun:test";
-import { Database } from "bun:sqlite";
+import { describe, it, expect, beforeEach } from "vitest";
+import Database from "better-sqlite3";
+type DB = InstanceType<typeof Database>;
 import { AgentService, AgentValidationError, AgentNotFoundError, AgentConfigError } from "@/lib/agents";
 
-function createDb(): Database {
+function createDb(): DB {
   const db = new Database(":memory:");
   db.exec("PRAGMA foreign_keys = ON");
   db.exec(`
@@ -141,14 +142,14 @@ describe("AgentService", () => {
 
     it("throws AgentValidationError when agent has non-done tasks", () => {
       const agent = service.create({ name: "busy-agent", port: 6003, folder: "/work" });
-      const db = (service as unknown as { db: Database }).db;
+      const db = (service as unknown as { db: DB }).db;
       db.prepare("INSERT INTO tasks (title, agent_id) VALUES (?, ?)").run("task-1", agent.id);
       expect(() => service.delete(agent.id)).toThrow(AgentValidationError);
     });
 
     it("allows deletion when all tasks are in done status", () => {
       const agent = service.create({ name: "done-agent", port: 6004, folder: "/work" });
-      const db = (service as unknown as { db: Database }).db;
+      const db = (service as unknown as { db: DB }).db;
       db.prepare("INSERT INTO tasks (title, agent_id, status) VALUES (?, ?, 'done')").run("done-task", agent.id);
       service.delete(agent.id);
       expect(service.list()).toHaveLength(0);
@@ -156,7 +157,7 @@ describe("AgentService", () => {
 
     it("blocks deletion when agent has a mix of done and non-done tasks", () => {
       const agent = service.create({ name: "mixed-agent", port: 6005, folder: "/work" });
-      const db = (service as unknown as { db: Database }).db;
+      const db = (service as unknown as { db: DB }).db;
       db.prepare("INSERT INTO tasks (title, agent_id, status) VALUES (?, ?, 'done')").run("done-task", agent.id);
       db.prepare("INSERT INTO tasks (title, agent_id, status) VALUES (?, ?, 'planning')").run("active-task", agent.id);
       expect(() => service.delete(agent.id)).toThrow(AgentValidationError);

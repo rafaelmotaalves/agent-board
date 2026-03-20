@@ -1,10 +1,11 @@
-import { describe, it, expect, beforeEach } from "bun:test";
-import { Database } from "bun:sqlite";
+import { describe, it, expect, beforeEach } from "vitest";
+import Database from "better-sqlite3";
+type DB = InstanceType<typeof Database>;
 import { AgentService } from "@/lib/agents";
 import { syncAgentsFromConfig } from "@/lib/configSync";
 import type { BoardConfig } from "@/lib/config";
 
-function createDb(): Database {
+function createDb(): DB {
   const db = new Database(":memory:");
   db.exec("PRAGMA foreign_keys = ON");
   db.exec(`

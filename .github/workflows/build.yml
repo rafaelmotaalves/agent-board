@@ -18,21 +18,23 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: oven-sh/setup-bun@v2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
 
       - name: Install dependencies
-        run: bun install --frozen-lockfile
+        run: npm ci
 
       - name: Lint
-        run: bun run lint
+        run: npm run lint
 
       - name: Type Check
-        run: bunx tsc --noEmit
+        run: npx tsc --noEmit
 
       - name: Test
         id: tests
         continue-on-error: true
-        run: bun test --reporter=default --reporter=junit --reporter-outfile=./junit.xml
+        run: npx vitest run --reporter=default --reporter=junit --outputFile=./junit.xml
 
       - name: Test Report
         uses: ctrf-io/github-test-reporter@v1
@@ -54,4 +56,4 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           
       - name: Build
-        run: bun run build
+        run: npm run build

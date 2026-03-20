@@ -21,10 +21,10 @@ A kanban-style task board for AI agents. Create tasks, assign them to AI agents,
 
 ## Getting Started
 
-**Prerequisites:** [Bun](https://bun.sh) >= 1.0
+**Prerequisites:** [Node.js](https://nodejs.org) >= 22
 
 ```bash
-bunx @rafaelmotaalves/agent-board
+npx @rafaelmotaalves/agent-board
 ```
 
 **Options**
@@ -36,13 +36,13 @@ bunx @rafaelmotaalves/agent-board
 
 ```bash
 # Custom port
-bunx @rafaelmotaalves/agent-board --port 4000
+npx @rafaelmotaalves/agent-board --port 4000
 
 # With a config file
-bunx @rafaelmotaalves/agent-board --config ./agents.json
+npx @rafaelmotaalves/agent-board --config ./agents.json
 
 # Both
-bunx @rafaelmotaalves/agent-board --port 4000 --config ./agents.json
+npx @rafaelmotaalves/agent-board --port 4000 --config ./agents.json
 ```
 
 ---

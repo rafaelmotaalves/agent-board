@@ -38,7 +38,7 @@ cd "$WORKTREE_PATH"
 ## Step 2 — Install Dependencies
 
 ```bash
-bun install
+npm install
 ```
 
 ## Step 3 — Implement Changes

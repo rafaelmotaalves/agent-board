@@ -1,9 +1,10 @@
-import { describe, it, expect, beforeEach } from "bun:test";
+import { describe, it, expect, beforeEach } from "vitest";
 import { AgentPool } from "@/lib/agents/agentPool";
 import { AgentService } from "@/lib/agents/agentService";
-import { Database } from "bun:sqlite";
+import Database from "better-sqlite3";
+type DB = InstanceType<typeof Database>;
 
-function createDb(): Database {
+function createDb(): DB {
   const db = new Database(":memory:");
   db.exec("PRAGMA journal_mode = WAL");
   db.exec(`
