@@ -1,6 +1,6 @@
 {
   "name": "@rafaelmotaalves/agent-board",
-  "version": "1.4.4",
+  "version": "1.4.5",
   "type": "module",
   "publishConfig": {
     "registry": "https://npm.pkg.github.com"
@@ -8,13 +8,9 @@
   "bin": {
     "agent-board": "./bin/agent-board.mjs"
   },
-  "files": [
-    "bin",
-    "dist"
-  ],
   "scripts": {
     "dev": "next dev --turbopack",
-    "build": "next build --webpack && node bin/postbuild.mjs && node bin/build-worker.mjs",
+    "build": "next build && node bin/postbuild.mjs && node bin/build-worker.mjs",
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
@@ -24,7 +20,7 @@
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "worker": "tsx src/worker.ts",
-    "prepack": "npm run build"
+    "postinstall": "node bin/postinstall.mjs"
   },
   "dependencies": {
     "@agentclientprotocol/sdk": "^0.15.0",
@@ -40,6 +36,11 @@
     "react-dom": "19.2.3",
     "react-markdown": "^10.1.0",
     "tailwindcss": "^4",
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "esbuild": "^0.25.0",
     "typescript": "^5"
   },
   "devDependencies": {
@@ -48,12 +49,7 @@
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",
-    "@types/better-sqlite3": "^7.6.13",
-    "@types/node": "^20",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
     "@vitest/coverage-v8": "^4.1.0",
-    "esbuild": "^0.25.0",
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
     "happy-dom": "^20.8.3",

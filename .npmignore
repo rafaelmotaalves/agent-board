@@ -1,0 +1,13 @@
+# Ignore test files and test setup
+src/test-setup.ts
+src/**/*.test.tsx
+src/**/*.test.ts
+vitest.config.ts
+eslint.config.mjs
+
+# Ignore the dist directory
+dist/
+
+# Ignore all markdown and YAML files
+*.md
+*.yml
