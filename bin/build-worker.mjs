@@ -11,7 +11,7 @@ await esbuild.build({
   target: "node20",
   format: "esm",
   outfile: "dist/worker.mjs",
-  external: ["better-sqlite3"],
+  external: ["better-sqlite3", "pino", "pino-pretty", "thread-stream"],
   tsconfig: "tsconfig.json",
   banner: {
     js: "import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);",
