@@ -1,0 +1,3 @@
+{
+  "/api/tasks/reset/route": "app/api/tasks/reset/route.js"
+}

@@ -1,0 +1,17 @@
+{
+  "/_global-error/page": "/_global-error",
+  "/_not-found/page": "/_not-found",
+  "/api/agents/[id]/route": "/api/agents/[id]",
+  "/api/agents/route": "/api/agents",
+  "/api/filesystem/route": "/api/filesystem",
+  "/api/tasks/[id]/messages/route": "/api/tasks/[id]/messages",
+  "/api/tasks/[id]/route": "/api/tasks/[id]",
+  "/api/tasks/[id]/stream/route": "/api/tasks/[id]/stream",
+  "/api/tasks/[id]/tool-calls/route": "/api/tasks/[id]/tool-calls",
+  "/api/tasks/[id]/usage/route": "/api/tasks/[id]/usage",
+  "/api/tasks/archive-done/route": "/api/tasks/archive-done",
+  "/api/tasks/reset/route": "/api/tasks/reset",
+  "/api/tasks/route": "/api/tasks",
+  "/favicon.ico/route": "/favicon.ico",
+  "/page": "/"
+}
