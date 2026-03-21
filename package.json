@@ -26,7 +26,8 @@
     "test:coverage:report": "vitest run --coverage --reporter=lcov",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
-    "worker": "tsx src/worker.ts"
+    "worker": "tsx src/worker.ts",
+    "prepack": "npm run build"
   },
   "dependencies": {
     "@agentclientprotocol/sdk": "^0.15.0",
