@@ -11,13 +11,11 @@
   "files": [
     "bin",
     "dist/standalone",
-    "dist/static",
-    "src/worker.ts",
-    "src/lib"
+    "dist/worker.mjs"
   ],
   "scripts": {
     "dev": "next dev --turbopack",
-    "build": "next build --webpack && node bin/postbuild.mjs",
+    "build": "next build --webpack && node bin/postbuild.mjs && node bin/build-worker.mjs",
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
@@ -43,7 +41,6 @@
     "react-dom": "19.2.3",
     "react-markdown": "^10.1.0",
     "tailwindcss": "^4",
-    "tsx": "^4.21.0",
     "typescript": "^5"
   },
   "devDependencies": {
@@ -57,9 +54,11 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@vitest/coverage-v8": "^4.1.0",
+    "esbuild": "^0.25.0",
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
     "happy-dom": "^20.8.3",
+    "tsx": "^4.21.0",
     "vitest": "^4.1.0"
   }
 }

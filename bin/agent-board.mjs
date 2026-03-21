@@ -3,12 +3,10 @@
 import { spawn } from "node:child_process";
 import { resolve, dirname } from "node:path";
 import { existsSync } from "node:fs";
-import { fileURLToPath, pathToFileURL } from "node:url";
-import { createRequire } from "node:module";
+import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const rootDir = resolve(__dirname, "..");
-const require = createRequire(import.meta.url);
 
 function log(message) {
   console.log(`[agent-board] ${message}`);
@@ -49,17 +47,20 @@ if (!existsSync(standaloneServer)) {
   process.exit(1);
 }
 
-const workerScript = resolve(rootDir, "src", "worker.ts");
-
-// Resolve tsx loader as a file:// URL for --import flag
-const tsxLoader = pathToFileURL(
-  resolve(dirname(require.resolve("tsx/package.json")), "dist", "loader.mjs")
-).href;
+// Pre-built worker bundle (no tsx needed at runtime)
+const workerScript = resolve(rootDir, "dist", "worker.mjs");
+if (!existsSync(workerScript)) {
+  console.error(
+    `[agent-board] Worker bundle not found at ${workerScript}\n` +
+    `Run "npm run build" first to generate the worker bundle.`
+  );
+  process.exit(1);
+}
 
 const children = [];
 
 log("Starting worker...");
-const worker = spawn(process.execPath, ["--import", tsxLoader, workerScript], {
+const worker = spawn(process.execPath, [workerScript], {
   stdio: "inherit",
   cwd: rootDir,
   env,
@@ -67,8 +68,7 @@ const worker = spawn(process.execPath, ["--import", tsxLoader, workerScript], {
 children.push(worker);
 
 log("Starting server...");
-const serverArgs = [standaloneServer];
-const server = spawn(process.execPath, serverArgs, {
+const server = spawn(process.execPath, [standaloneServer], {
   stdio: "inherit",
   cwd: resolve(rootDir, "dist", "standalone"),
   env,
