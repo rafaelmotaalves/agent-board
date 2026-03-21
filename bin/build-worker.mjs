@@ -11,8 +11,11 @@ await esbuild.build({
   target: "node20",
   format: "esm",
   outfile: "dist/worker.mjs",
-  packages: "external",
+  external: ["better-sqlite3"],
   tsconfig: "tsconfig.json",
+  banner: {
+    js: "import { createRequire } from 'node:module'; const require = createRequire(import.meta.url);",
+  },
 });
 
 console.log("[build-worker] Bundled worker → dist/worker.mjs");
