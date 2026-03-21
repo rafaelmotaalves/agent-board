@@ -1,6 +1,6 @@
 {
   "name": "@rafaelmotaalves/agent-board",
-  "version": "1.3.2",
+  "version": "1.4.3",
   "type": "module",
   "publishConfig": {
     "registry": "https://npm.pkg.github.com"
@@ -10,15 +10,12 @@
   },
   "files": [
     "bin",
-    "src",
-    "public",
-    "next.config.ts",
-    "tsconfig.json",
-    "postcss.config.mjs"
+    "dist/standalone",
+    "dist/worker.mjs"
   ],
   "scripts": {
     "dev": "next dev --turbopack",
-    "build": "next build",
+    "build": "next build --webpack && node bin/postbuild.mjs && node bin/build-worker.mjs",
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
@@ -27,7 +24,8 @@
     "test:coverage:report": "vitest run --coverage --reporter=lcov",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
-    "worker": "tsx src/worker.ts"
+    "worker": "tsx src/worker.ts",
+    "prepack": "npm run build"
   },
   "dependencies": {
     "@agentclientprotocol/sdk": "^0.15.0",
@@ -43,7 +41,6 @@
     "react-dom": "19.2.3",
     "react-markdown": "^10.1.0",
     "tailwindcss": "^4",
-    "tsx": "^4.21.0",
     "typescript": "^5"
   },
   "devDependencies": {
@@ -57,9 +54,11 @@
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "@vitest/coverage-v8": "^4.1.0",
+    "esbuild": "^0.25.0",
     "eslint": "^9",
     "eslint-config-next": "16.1.6",
     "happy-dom": "^20.8.3",
+    "tsx": "^4.21.0",
     "vitest": "^4.1.0"
   }
 }

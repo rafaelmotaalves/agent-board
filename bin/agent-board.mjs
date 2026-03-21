@@ -1,23 +1,21 @@
 #!/usr/bin/env node
 
-import { spawn, execFileSync } from "node:child_process";
+import { spawn } from "node:child_process";
 import { resolve, dirname } from "node:path";
-import { fileURLToPath, pathToFileURL } from "node:url";
-import { createRequire } from "node:module";
+import { existsSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const rootDir = resolve(__dirname, "..");
-const require = createRequire(import.meta.url);
 
 function log(message) {
   console.log(`[agent-board] ${message}`);
 }
 
-// Parse --config <path> and --port/-p <port> from argv; forward the rest to Next.js
+// Parse --config <path> and --port/-p <port> from argv
 const rawArgs = process.argv.slice(2);
 let configPath = undefined;
 let port = undefined;
-const nextArgs = [];
 
 for (let i = 0; i < rawArgs.length; i++) {
   if (rawArgs[i] === "--config" && i + 1 < rawArgs.length) {
@@ -28,9 +26,6 @@ for (let i = 0; i < rawArgs.length; i++) {
       console.error(`[agent-board] Invalid port: ${port}`);
       process.exit(1);
     }
-    nextArgs.push("--port", port);
-  } else {
-    nextArgs.push(rawArgs[i]);
   }
 }
 
@@ -42,32 +37,30 @@ if (port) {
   env.PORT = port;
 }
 
-// Resolve next CLI binary from the package's own dependencies
-const nextBin = resolve(dirname(require.resolve("next/package.json")), "dist", "bin", "next");
-
-// Build the project before starting
-log("Building the project...");
-try {
-  execFileSync(process.execPath, [nextBin, "build", rootDir], {
-    stdio: "inherit",
-    cwd: rootDir,
-    env,
-  });
-  log("Build completed successfully.");
-} catch {
-  console.error("[agent-board] Build failed. Exiting.");
+// Resolve the standalone server produced by `next build` with output: "standalone"
+const standaloneServer = resolve(rootDir, "dist", "standalone", "server.js");
+if (!existsSync(standaloneServer)) {
+  console.error(
+    `[agent-board] Standalone server not found at ${standaloneServer}\n` +
+    `Run "npm run build" first to generate the standalone output.`
+  );
   process.exit(1);
 }
 
-const workerScript = resolve(rootDir, "src", "worker.ts");
-
-// Resolve tsx loader as a file:// URL for --import flag
-const tsxLoader = pathToFileURL(resolve(dirname(require.resolve("tsx/package.json")), "dist", "loader.mjs")).href;
+// Pre-built worker bundle (no tsx needed at runtime)
+const workerScript = resolve(rootDir, "dist", "worker.mjs");
+if (!existsSync(workerScript)) {
+  console.error(
+    `[agent-board] Worker bundle not found at ${workerScript}\n` +
+    `Run "npm run build" first to generate the worker bundle.`
+  );
+  process.exit(1);
+}
 
 const children = [];
 
 log("Starting worker...");
-const worker = spawn(process.execPath, ["--import", tsxLoader, workerScript], {
+const worker = spawn(process.execPath, [workerScript], {
   stdio: "inherit",
   cwd: rootDir,
   env,
@@ -75,9 +68,9 @@ const worker = spawn(process.execPath, ["--import", tsxLoader, workerScript], {
 children.push(worker);
 
 log("Starting server...");
-const server = spawn(process.execPath, [nextBin, "start", rootDir, ...nextArgs], {
+const server = spawn(process.execPath, [standaloneServer], {
   stdio: "inherit",
-  cwd: rootDir,
+  cwd: resolve(rootDir, "dist", "standalone"),
   env,
 });
 children.push(server);
