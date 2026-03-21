@@ -10,8 +10,7 @@
   },
   "files": [
     "bin",
-    "dist/standalone",
-    "dist/worker.mjs"
+    "dist"
   ],
   "scripts": {
     "dev": "next dev --turbopack",
