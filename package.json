@@ -17,7 +17,7 @@
   ],
   "scripts": {
     "dev": "next dev --turbopack",
-    "build": "next build && node bin/postbuild.mjs",
+    "build": "next build --webpack && node bin/postbuild.mjs",
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
