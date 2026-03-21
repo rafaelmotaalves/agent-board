@@ -10,15 +10,14 @@
   },
   "files": [
     "bin",
-    "src",
-    "public",
-    "next.config.ts",
-    "tsconfig.json",
-    "postcss.config.mjs"
+    "dist/standalone",
+    "dist/static",
+    "src/worker.ts",
+    "src/lib"
   ],
   "scripts": {
     "dev": "next dev --turbopack",
-    "build": "next build",
+    "build": "next build && node bin/postbuild.mjs",
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
