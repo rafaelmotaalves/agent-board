@@ -8,17 +8,9 @@
   "bin": {
     "agent-board": "./bin/agent-board.mjs"
   },
-  "files": [
-    "bin",
-    "src",
-    "next.config.ts",
-    "tsconfig.json",
-    "postcss.config.mjs",
-    "next-env.d.ts"
-  ],
   "scripts": {
     "dev": "next dev --turbopack",
-    "build": "next build --webpack && node bin/postbuild.mjs && node bin/build-worker.mjs",
+    "build": "next build && node bin/postbuild.mjs && node bin/build-worker.mjs",
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
