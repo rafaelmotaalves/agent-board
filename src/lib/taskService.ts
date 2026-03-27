@@ -208,13 +208,15 @@ export class TaskService {
       "UPDATE tasks SET state = 'failed', failure_reason = 'Worker restarted while task was in progress', active_time_ms = ?, active_since = NULL, updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = ?"
     );
 
-    for (const task of inProgressTasks) {
-      let accumulated = task.active_time_ms;
-      if (task.active_since) {
-        accumulated += Math.max(0, now.getTime() - new Date(task.active_since).getTime());
+    this.db.transaction(() => {
+      for (const task of inProgressTasks) {
+        let accumulated = task.active_time_ms;
+        if (task.active_since) {
+          accumulated += Math.max(0, now.getTime() - new Date(task.active_since).getTime());
+        }
+        stmt.run(accumulated, task.id);
       }
-      stmt.run(accumulated, task.id);
-    }
+    })();
 
     return inProgressTasks.length;
   }
@@ -273,20 +275,22 @@ export class TaskService {
     const trimmed = content?.trim();
     if (!trimmed) throw new ValidationError("Message content is required");
 
-    const result = this.db
-      .prepare(
-        "INSERT INTO task_messages (task_id, role, content, task_state_at_creation) VALUES (?, 'user', ?, ?)"
-      )
-      .run(taskId, trimmed, task.status);
+    return this.db.transaction(() => {
+      const result = this.db
+        .prepare(
+          "INSERT INTO task_messages (task_id, role, content, task_state_at_creation) VALUES (?, 'user', ?, ?)"
+        )
+        .run(taskId, trimmed, task.status);
 
-    // Transition to add_message so the worker picks this up; clear failure_reason
-    this.db
-      .prepare("UPDATE tasks SET state = 'add_message', failure_reason = NULL, updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = ?")
-      .run(taskId);
+      // Transition to add_message so the worker picks this up; clear failure_reason
+      this.db
+        .prepare("UPDATE tasks SET state = 'add_message', failure_reason = NULL, updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now') WHERE id = ?")
+        .run(taskId);
 
-    return this.db
-      .prepare("SELECT * FROM task_messages WHERE id = ?")
-      .get(result.lastInsertRowid) as unknown as TaskMessage;
+      return this.db
+        .prepare("SELECT * FROM task_messages WHERE id = ?")
+        .get(result.lastInsertRowid) as unknown as TaskMessage;
+    })();
   }
 
   /**
@@ -298,18 +302,20 @@ export class TaskService {
     const task = this.findById(taskId);
     if (!task) throw new TaskNotFoundError(taskId);
 
-    // Safety net: remove orphaned incomplete messages from a previous failed attempt
-    this.deleteIncompleteMessages(taskId);
+    return this.db.transaction(() => {
+      // Safety net: remove orphaned incomplete messages from a previous failed attempt
+      this.deleteIncompleteMessages(taskId);
 
-    const result = this.db
-      .prepare(
-        "INSERT INTO task_messages (task_id, role, content, task_state_at_creation, is_complete) VALUES (?, 'agent', '', ?, 0)"
-      )
-      .run(taskId, taskStatus);
+      const result = this.db
+        .prepare(
+          "INSERT INTO task_messages (task_id, role, content, task_state_at_creation, is_complete) VALUES (?, 'agent', '', ?, 0)"
+        )
+        .run(taskId, taskStatus);
 
-    return this.db
-      .prepare("SELECT * FROM task_messages WHERE id = ?")
-      .get(result.lastInsertRowid) as unknown as TaskMessage;
+      return this.db
+        .prepare("SELECT * FROM task_messages WHERE id = ?")
+        .get(result.lastInsertRowid) as unknown as TaskMessage;
+    })();
   }
 
   /**
