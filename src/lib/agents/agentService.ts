@@ -188,6 +188,40 @@ export class AgentService {
     return this.findById(id)!;
   }
 
+  listBySource(source: AgentSource): Agent[] {
+    const rows = this.db
+      .prepare("SELECT * FROM agents WHERE source = ? ORDER BY created_at DESC")
+      .all(source) as Record<string, unknown>[];
+    return rows.map((r) => this.parseAgent(r));
+  }
+
+  /**
+   * Remove a config-sourced agent that is no longer in the config file.
+   * - If no active tasks: deletes the agent (and its done tasks).
+   * - If active tasks exist: changes source to 'user' so the user can manage it.
+   */
+  removeConfigAgent(id: number): "deleted" | "deactivated" {
+    const existing = this.findById(id);
+    if (!existing) throw new AgentNotFoundError(id);
+
+    const { count: activeTaskCount } = this.db
+      .prepare(
+        "SELECT COUNT(*) as count FROM tasks WHERE agent_id = ? AND status != 'done'"
+      )
+      .get(id) as { count: number };
+
+    if (activeTaskCount > 0) {
+      this.db
+        .prepare("UPDATE agents SET source = 'user' WHERE id = ?")
+        .run(id);
+      return "deactivated";
+    }
+
+    this.db.prepare("DELETE FROM tasks WHERE agent_id = ? AND status = 'done'").run(id);
+    this.db.prepare("DELETE FROM agents WHERE id = ?").run(id);
+    return "deleted";
+  }
+
   delete(id: number): void {
     const existing = this.findById(id);
     if (!existing) throw new AgentNotFoundError(id);

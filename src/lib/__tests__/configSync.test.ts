@@ -127,7 +127,7 @@ describe("syncAgentsFromConfig", () => {
     expect(agents[0].options).toEqual({ parallel_planning: true });
   });
 
-  it("does not delete agents missing from config", () => {
+  it("does not delete user-sourced agents missing from config", () => {
     service.create({ name: "Keep Me", port: 9000, folder: "/keep" });
     const config: BoardConfig = {
       agents: [
@@ -140,6 +140,59 @@ describe("syncAgentsFromConfig", () => {
     expect(agents).toHaveLength(2);
     expect(agents.find((a) => a.name === "Keep Me")).toBeDefined();
     expect(agents.find((a) => a.name === "New Agent")).toBeDefined();
+  });
+
+  it("deletes config-sourced agents removed from config with no active tasks", () => {
+    service.create({ name: "Stale Agent", port: 9000, folder: "/stale", source: "config" });
+    const config: BoardConfig = { agents: [] };
+    syncAgentsFromConfig(config, service);
+
+    const agents = service.list();
+    expect(agents).toHaveLength(0);
+  });
+
+  it("deactivates config-sourced agents removed from config with active tasks", () => {
+    const agent = service.create({ name: "Busy Agent", port: 9000, folder: "/busy", source: "config" });
+    // Insert an active task for this agent
+    const db = (service as unknown as { db: import("bun:sqlite").Database }).db;
+    db.prepare("INSERT INTO tasks (title, agent_id, status, state) VALUES (?, ?, 'in_progress', 'active')").run("Active Task", agent.id);
+
+    const config: BoardConfig = { agents: [] };
+    syncAgentsFromConfig(config, service);
+
+    const agents = service.list();
+    expect(agents).toHaveLength(1);
+    expect(agents[0].name).toBe("Busy Agent");
+    expect(agents[0].source).toBe("user");
+  });
+
+  it("deletes config-sourced agents with only done tasks", () => {
+    const agent = service.create({ name: "Done Agent", port: 9000, folder: "/done", source: "config" });
+    const db = (service as unknown as { db: import("bun:sqlite").Database }).db;
+    db.prepare("INSERT INTO tasks (title, agent_id, status, state) VALUES (?, ?, 'done', 'pending')").run("Done Task", agent.id);
+
+    const config: BoardConfig = { agents: [] };
+    syncAgentsFromConfig(config, service);
+
+    const agents = service.list();
+    expect(agents).toHaveLength(0);
+  });
+
+  it("handles multiple removals in one sync", () => {
+    service.create({ name: "Remove A", port: 9001, folder: "/a", source: "config" });
+    service.create({ name: "Remove B", port: 9002, folder: "/b", source: "config" });
+    service.create({ name: "Keep C", port: 9003, folder: "/c", source: "config" });
+
+    const config: BoardConfig = {
+      agents: [
+        { name: "Keep C", type: "copilot_cli_sdk", port: 9003, folder: "/c" },
+      ],
+    };
+    syncAgentsFromConfig(config, service);
+
+    const agents = service.list();
+    expect(agents).toHaveLength(1);
+    expect(agents[0].name).toBe("Keep C");
   });
 
   it("handles empty agents array", () => {
