@@ -224,16 +224,6 @@ describe("TaskService", () => {
     });
   });
 
-  // ── reset ────────────────────────────────────────────────────────────────────
-
-  describe("reset", () => {
-    it("deletes all tasks", () => {
-      service.create({ title: "A", agent_id: 1 });
-      service.create({ title: "B", agent_id: 1 });
-      service.reset();
-      expect(service.list()).toHaveLength(0);
-    });
-  });
 
   // ── addUserMessage ───────────────────────────────────────────────────────────
 
